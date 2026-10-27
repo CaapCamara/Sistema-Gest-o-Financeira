@@ -1,13 +1,29 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --color-brand-50: #eef4ff;
-  --color-brand-100: #dbe6fe;
-  --color-brand-500: #3b6cf6;
-  --color-brand-600: #2952e3;
-  --color-brand-700: #2143c4;
-  --color-brand-900: #172554;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  /* Cobalto: marca e destino "juros" */
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #dce3ff;
+  --color-brand-200: #bfcbff;
+  --color-brand-300: #95a8ff;
+  --color-brand-400: #6b82fb;
+  --color-brand-500: #4d6bfe;
+  --color-brand-600: #3354f4;
+  --color-brand-700: #2540d6;
+  --color-brand-800: #1f35ab;
+  --color-brand-900: #1c2f82;
+
+  /* Tinta: menu lateral e títulos */
+  --color-tinta-700: #22325c;
+  --color-tinta-800: #18264a;
+  --color-tinta-900: #101c3a;
+  --color-tinta-950: #0a1430;
+
+  /* Papel: fundo das telas */
+  --color-papel: #f6f7fb;
 }
 
 html {
@@ -15,10 +31,34 @@ html {
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-papel text-slate-900 antialiased;
 }
 
 /* Números tabulares para colunas monetárias */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+}
+
+/* Barra de fluxo: entrada única ao carregar a tela */
+@keyframes fluxo-entrada {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.fluxo-anima {
+  transform-origin: left;
+  animation: fluxo-entrada 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fluxo-anima {
+    animation: none;
+  }
 }

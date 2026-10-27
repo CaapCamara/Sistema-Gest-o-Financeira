@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock, FileText, Handshake, HandCoins, FileCheck2, Scale, StickyNote, type LucideIcon } from "lucide-react";
+import { ArrowRightLeft, CalendarClock, FileText, Handshake, HandCoins, FileCheck2, Scale, StickyNote, type LucideIcon } from "lucide-react";
 import { formatDateBR, formatDateTimeBR, hojeISO } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -17,6 +17,7 @@ const ICONE: Record<TipoMovimentacao, LucideIcon> = {
   recebimento: HandCoins,
   protocolo: FileCheck2,
   documento: FileText,
+  operacao: ArrowRightLeft,
 };
 
 const ROTULO: Record<TipoMovimentacao, string> = {
@@ -26,6 +27,7 @@ const ROTULO: Record<TipoMovimentacao, string> = {
   recebimento: "Recebimento",
   protocolo: "Protocolo",
   documento: "Documento",
+  operacao: "Operação",
 };
 
 export function Movimentacoes({

@@ -16,7 +16,8 @@ Aplicação web privada para controlar empréstimos, compromissos de pagamento, 
 | 5. Processos, acordos, parcelas e recebimentos | ✅ |
 | 6. Documentos, protocolos GOV e histórico de movimentações | ✅ |
 | 7. Painel completo (indicadores do Módulo 2) | ✅ |
-| 8. Finalização e implantação | ⏳ |
+| 8. Finalização e implantação | ✅ |
+| 9. Operações: acordo como fonte de recursos do empréstimo | ✅ |
 
 ## Regras de negócio implementadas (Módulo 1)
 
@@ -55,11 +56,29 @@ Decisões técnicas que o responsável pode revisar:
 
 Todos os saldos são **calculados** pelas views `vw_emprestimo_posicao` e `vw_competencias`. Nenhum saldo é digitado.
 
+## Premissa central: operações (acordo → empréstimo)
+
+O dinheiro dos acordos paga os empréstimos. Uma **operação** (`OPR-2026-0001`) liga um acordo a um empréstimo e define a destinação de cada recebimento:
+
+| Regra | Comportamento |
+|---|---|
+| Percentuais | `% juros` + `% reserva` ≤ 100%. A diferença (percentual livre) vai para o **montante remanescente**. Os percentuais não mudam depois de criada; para mudar a regra, encerre e crie outra. |
+| Juros | A cota de juros paga os **juros em aberto vencidos e a próxima competência a vencer**, do mais antigo para o mais recente. **Nunca abate o principal.** O que exceder vai para o remanescente. |
+| Reserva | A cota de reserva vira aporte na reserva do empréstimo. |
+| Recebimento parcial | As cotas são calculadas sobre o valor nominal de cada parcela do acordo. O empréstimo tem prioridade: o que chega primeiro preenche a cota de juros da parcela, depois a da reserva. |
+| Vários processos | Um empréstimo pode receber de várias operações (um acordo por operação ativa). As contribuições somam na mesma competência. A tela do empréstimo mostra a **Cobertura do mês** por processo. |
+| Prazo variável | Nada depende do prazo contratado. Quitado o principal, os juros seguintes deixam de ser devidos e a cota de juros passa ao remanescente. Vencido sem quitação, os juros pós-prazo continuam sendo pagos pela cota. |
+| Principal | **Quitar principal com a reserva** aparece quando a reserva cobre o principal em aberto. O usuário confirma; a data não pode anular juros já pagos. |
+| Estorno | Estornar o recebimento estorna em cascata o pagamento e o aporte gerados. Esses lançamentos não podem ser estornados isoladamente. O estorno é bloqueado se a reserva já foi usada. |
+| Encerramento | Encerrar a operação interrompe a destinação dos próximos recebimentos; o histórico continua. |
+
+Tudo é feito no banco, na mesma transação do recebimento (`registrar_recebimento` → `destinar_recebimento`). Views: `vw_operacoes`, `vw_operacao_destinacoes`, `vw_emprestimo_cobertura`, `vw_emprestimo_quitacao_sugerida`. Telas: **Operações**, **Montante remanescente**, aba *Operação* do acordo, aba *Operações* e *Cobertura do mês* do empréstimo e o fluxo do mês no painel.
+
 ## Regras de negócio implementadas (Módulo 2)
 
 Regras confirmadas com o responsável:
 
-1. **O acordo é entre terceiros.** Requerente e requerido pagam entre si; o sistema apenas acompanha. O valor do acordo **não entra** no caixa nem nos empréstimos. Cada acordo indica qual polo paga (o outro recebe).
+1. **Cada acordo indica qual polo paga** (o outro recebe). Sem operação, o acordo é só acompanhado. Com operação, seus recebimentos alimentam um empréstimo (veja a premissa central acima).
 2. **Parcelas iguais ou digitadas.** No modo automático, o total é dividido em parcelas iguais (truncadas no centavo) e a diferença fica na última. Exemplo: R$ 1.000 em 3 vezes gera 333,33 + 333,33 + 333,34, com vencimentos mensais a partir do primeiro. No modo manual, cada parcela é digitada.
 3. **Soma diferente do total só gera aviso.** O bloqueio fica para uma versão futura.
 4. **Carência de 3 dias por padrão**, editável por acordo. A parcela fica **em carência** do dia seguinte ao vencimento até vencimento + carência, e **atrasada** depois disso, se ainda houver saldo.

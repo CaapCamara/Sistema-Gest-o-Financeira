@@ -20,7 +20,18 @@ import { PagamentoDialog } from "@/modules/emprestimos/components/pagamento-dial
 import { ReservaDialog } from "@/modules/emprestimos/components/reserva-dialog";
 import { EstornoButton } from "@/modules/emprestimos/components/estorno-button";
 import { HistoricoAuditoria } from "@/components/ui/historico-auditoria";
-import type { Competencia, EmprestimoPosicao, MovimentoReserva, Pagamento, RegistroAuditoria } from "@/types/db";
+import { CoberturaCard } from "@/modules/operacoes/components/cobertura-card";
+import { QuitarReservaButton } from "@/modules/operacoes/components/quitar-reserva-button";
+import type {
+  CoberturaEmprestimo,
+  Competencia,
+  EmprestimoPosicao,
+  MovimentoReserva,
+  OperacaoView,
+  Pagamento,
+  QuitacaoSugerida,
+  RegistroAuditoria,
+} from "@/types/db";
 
 export const metadata: Metadata = { title: "Empréstimo" };
 
@@ -28,6 +39,7 @@ const ABAS = [
   { id: "cronograma", label: "Cronograma" },
   { id: "pagamentos", label: "Pagamentos" },
   { id: "reservas", label: "Reservas" },
+  { id: "operacoes", label: "Operações" },
   { id: "historico", label: "Histórico de alterações" },
 ] as const;
 
@@ -45,7 +57,7 @@ export default async function EmprestimoPage({
   const perfil = await getPerfil();
   const editavel = podeEditar(perfil);
 
-  const [{ data: pos }, { data: comps }, { data: pags }, { data: movs }] = await Promise.all([
+  const [{ data: pos }, { data: comps }, { data: pags }, { data: movs }, { data: cob }, { data: ops }, { data: quit }] = await Promise.all([
     supabase.from("vw_emprestimo_posicao").select("*").eq("id", id).maybeSingle(),
     supabase.from("vw_competencias").select("*").eq("emprestimo_id", id).order("numero"),
     supabase
@@ -54,6 +66,9 @@ export default async function EmprestimoPage({
       .eq("emprestimo_id", id)
       .order("data_pagamento", { ascending: false }),
     supabase.from("reserva_movimentos").select("*").eq("emprestimo_id", id).order("data_movimento", { ascending: false }),
+    supabase.from("vw_emprestimo_cobertura").select("*").eq("emprestimo_id", id).maybeSingle(),
+    supabase.from("vw_operacoes").select("*").eq("emprestimo_id", id).order("ativa", { ascending: false }).order("codigo"),
+    supabase.from("vw_emprestimo_quitacao_sugerida").select("*").eq("emprestimo_id", id).maybeSingle(),
   ]);
   if (!pos) notFound();
 
@@ -62,6 +77,10 @@ export default async function EmprestimoPage({
   const pagamentos = (pags ?? []) as Pagamento[];
   const movimentos = (movs ?? []) as MovimentoReserva[];
   const numeroCompetencia = new Map(competencias.map((c) => [c.id, c.numero]));
+  const cobertura = (cob ?? null) as CoberturaEmprestimo | null;
+  const operacoes = (ops ?? []) as OperacaoView[];
+  const codigoOperacao = new Map(operacoes.map((o) => [o.id, o]));
+  const quitacao = (quit ?? null) as QuitacaoSugerida | null;
 
   let auditoria: RegistroAuditoria[] = [];
   if (aba === "historico" && perfil?.papel === "admin") {
@@ -95,6 +114,14 @@ export default async function EmprestimoPage({
               <Link href={`/emprestimos/${id}/editar`} className={buttonClasses("secondary", "sm")}>
                 <Pencil className="h-4 w-4" /> Editar
               </Link>
+              {quitacao?.reserva_cobre_principal && (
+                <QuitarReservaButton
+                  emprestimoId={id}
+                  principalDevido={quitacao.principal_devido}
+                  reservaSaldo={quitacao.reserva_saldo}
+                  dataSugerida={quitacao.data_sugerida}
+                />
+              )}
               <ReservaDialog emprestimoId={id} saldoReserva={e.reserva_saldo} />
               <PagamentoDialog
                 emprestimoId={id}
@@ -139,6 +166,21 @@ export default async function EmprestimoPage({
         <Stat label="Saldo contratual total" value={formatBRL(e.saldo_devedor_contratual)} hint="inclui juros ainda a vencer" />
         <Stat label="Próximo vencimento de juros" value={formatDateBR(e.proximo_vencimento)} />
       </div>
+
+      {(operacoes.length > 0 || cobertura) && (
+        <div className="mt-4">
+          <CoberturaCard cobertura={cobertura} operacoes={operacoes} jurosMensal={e.juros_mensal} />
+        </div>
+      )}
+
+      {quitacao?.reserva_cobre_principal && (
+        <div className="mt-4">
+          <FormAlert tone="success">
+            A reserva ({formatBRL(quitacao.reserva_saldo)}) já cobre o principal em aberto ({formatBRL(quitacao.principal_devido)}).
+            {editavel ? " Use “Quitar principal com a reserva” quando quiser quitar." : ""}
+          </FormAlert>
+        </div>
+      )}
 
       {e.competencias_pos_vencimento > 0 && !e.data_quitacao_principal && (
         <div className="mt-4">
@@ -289,7 +331,18 @@ export default async function EmprestimoPage({
                         </ul>
                       </Td>
                       <Td>{p.forma_pagamento ?? "—"}</Td>
-                      <Td>{p.origem_reserva ? <Badge tone="blue">Reserva</Badge> : "Recursos próprios"}</Td>
+                      <Td>
+                        {p.operacao_id ? (
+                          <Badge tone="violet">Operação {codigoOperacao.get(p.operacao_id)?.codigo ?? ""}</Badge>
+                        ) : p.origem_reserva ? (
+                          <Badge tone="blue">Reserva</Badge>
+                        ) : (
+                          "Recursos próprios"
+                        )}
+                        {p.operacao_id && codigoOperacao.get(p.operacao_id) && (
+                          <span className="block text-xs text-slate-500">{codigoOperacao.get(p.operacao_id)?.processo_codigo}</span>
+                        )}
+                      </Td>
                       <Td className="max-w-xs whitespace-normal text-xs">
                         {p.observacoes}
                         {estornado && (
@@ -299,7 +352,16 @@ export default async function EmprestimoPage({
                         )}
                       </Td>
                       <Td>
-                        {editavel && !estornado && (
+                        {editavel && !estornado && p.recebimento_id && codigoOperacao.get(p.operacao_id ?? "") && (
+                          <Link
+                            href={`/acordos/${codigoOperacao.get(p.operacao_id ?? "")?.acordo_id}?aba=recebimentos`}
+                            className="text-xs text-slate-400 hover:text-brand-700"
+                            title="Gerado por recebimento de acordo: estorne pela origem"
+                          >
+                            origem
+                          </Link>
+                        )}
+                        {editavel && !estornado && !p.recebimento_id && (
                           <EstornoButton
                             emprestimoId={id}
                             alvoId={p.id}
@@ -348,10 +410,15 @@ export default async function EmprestimoPage({
                       <Td>{m.conta ?? "—"}</Td>
                       <Td className="max-w-xs whitespace-normal text-xs">
                         {m.observacoes}
+                        {m.operacao_id && (
+                          <span className="block text-violet-700">
+                            Operação {codigoOperacao.get(m.operacao_id)?.codigo} · {codigoOperacao.get(m.operacao_id)?.processo_codigo}
+                          </span>
+                        )}
                         {estornado && <span className="block text-red-600">Estornado: {m.motivo_estorno}</span>}
                       </Td>
                       <Td>
-                        {editavel && !estornado && !m.pagamento_id && (
+                        {editavel && !estornado && !m.pagamento_id && !m.recebimento_id && (
                           <EstornoButton
                             emprestimoId={id}
                             alvoId={m.id}
@@ -363,6 +430,56 @@ export default async function EmprestimoPage({
                     </tr>
                   );
                 })}
+              </tbody>
+            </Table>
+          </Card>
+        )}
+
+        {aba === "operacoes" && (
+          <Card>
+            <CardHeader
+              title="Operações que alimentam este empréstimo"
+              description="Recebimentos de acordos destinados aos juros e à reserva deste empréstimo. Para criar, abra o acordo e use “Vincular a empréstimo”."
+            />
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Operação</Th>
+                  <Th>Processo · acordo</Th>
+                  <Th>Regra</Th>
+                  <Th align="right">Prevista/mês</Th>
+                  <Th align="right">Juros</Th>
+                  <Th align="right">Reserva</Th>
+                  <Th align="right">Remanescente</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {operacoes.length === 0 && <EmptyRow colSpan={7}>Nenhuma operação vinculada.</EmptyRow>}
+                {operacoes.map((o) => (
+                  <tr key={o.id} className={cn("hover:bg-slate-50/70", !o.ativa && "text-slate-400")}>
+                    <Td>
+                      <Link href={`/acordos/${o.acordo_id}?aba=operacao`} className="font-medium text-brand-700 hover:underline">
+                        {o.codigo}
+                      </Link>
+                      {!o.ativa && (
+                        <Badge tone="gray" className="ml-2">
+                          Encerrada
+                        </Badge>
+                      )}
+                    </Td>
+                    <Td>
+                      {o.numero_processo ?? o.processo_codigo}
+                      <span className="block text-xs text-slate-500">{o.acordo_codigo}</span>
+                    </Td>
+                    <Td className="text-xs">
+                      {Number(o.percentual_emprestimo).toLocaleString("pt-BR")}% juros · {Number(o.percentual_reserva).toLocaleString("pt-BR")}% reserva
+                    </Td>
+                    <Td align="right">{o.ativa ? formatBRL(o.contribuicao_juros_prevista) : "—"}</Td>
+                    <Td align="right" className="text-brand-700">{formatBRL(o.total_juros)}</Td>
+                    <Td align="right" className="text-emerald-700">{formatBRL(o.total_reserva)}</Td>
+                    <Td align="right" className="text-violet-700">{formatBRL(o.total_remanescente)}</Td>
+                  </tr>
+                ))}
               </tbody>
             </Table>
           </Card>

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfil, podeEditar } from "@/lib/auth";
-import { formatBRL, money } from "@/lib/money";
+import { formatBRL, formatDecimalBR, money } from "@/lib/money";
 import { formatDateBR, formatDateTimeBR } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
@@ -24,13 +24,26 @@ import {
 } from "@/modules/acordos/labels";
 import { RecebimentoDialog } from "@/modules/acordos/components/recebimento-dialog";
 import { EstornoRecebimentoButton } from "@/modules/acordos/components/estorno-recebimento-button";
-import type { AcordoPosicao, ParcelaPosicao, Recebimento, RegistroAuditoria } from "@/types/db";
+import { OperacaoDialog, type EmprestimoOpcao } from "@/modules/operacoes/components/operacao-dialog";
+import { EncerrarOperacaoButton } from "@/modules/operacoes/components/encerrar-operacao-button";
+import { DESTINO_LABEL } from "@/modules/operacoes/labels";
+import { SplitBar } from "@/components/ui/progress";
+import type {
+  AcordoPosicao,
+  DestinacaoView,
+  EmprestimoPosicao,
+  OperacaoView,
+  ParcelaPosicao,
+  Recebimento,
+  RegistroAuditoria,
+} from "@/types/db";
 
 export const metadata: Metadata = { title: "Acordo" };
 
 const ABAS = [
   { id: "parcelas", label: "Parcelas" },
   { id: "recebimentos", label: "Recebimentos" },
+  { id: "operacao", label: "Operação" },
   { id: "historico", label: "Histórico de alterações" },
 ] as const;
 
@@ -47,7 +60,7 @@ export default async function AcordoPage({
   const perfil = await getPerfil();
   const editavel = podeEditar(perfil);
 
-  const [{ data: pos }, { data: parcs }, { data: recs }] = await Promise.all([
+  const [{ data: pos }, { data: parcs }, { data: recs }, { data: ops }, { data: dest }] = await Promise.all([
     supabase.from("vw_acordo_posicao").select("*").eq("id", id).maybeSingle(),
     supabase.from("vw_acordo_parcelas").select("*").eq("acordo_id", id).order("numero"),
     supabase
@@ -56,6 +69,8 @@ export default async function AcordoPage({
       .eq("acordo_id", id)
       .order("data_recebimento", { ascending: false })
       .order("criado_em", { ascending: false }),
+    supabase.from("vw_operacoes").select("*").eq("acordo_id", id).order("criado_em", { ascending: false }),
+    supabase.from("vw_operacao_destinacoes").select("*").eq("acordo_id", id).is("estornado_em", null),
   ]);
   if (!pos) notFound();
 
@@ -63,6 +78,33 @@ export default async function AcordoPage({
   const parcelas = (parcs ?? []) as ParcelaPosicao[];
   const recebimentos = (recs ?? []) as Recebimento[];
   const numeroParcela = new Map(parcelas.map((p) => [p.id, p.numero]));
+  const operacoes = (ops ?? []) as OperacaoView[];
+  const operacaoAtiva = operacoes.find((o) => o.ativa) ?? null;
+  const destinacoes = (dest ?? []) as DestinacaoView[];
+  const destinoPorRecebimento = new Map<string, { emprestimo: number; reserva: number; remanescente: number }>();
+  for (const d of destinacoes) {
+    const atual = destinoPorRecebimento.get(d.recebimento_id) ?? { emprestimo: 0, reserva: 0, remanescente: 0 };
+    atual[d.destino] = money(atual[d.destino]).plus(d.valor).toNumber();
+    destinoPorRecebimento.set(d.recebimento_id, atual);
+  }
+
+  // Empréstimos disponíveis para vincular (com as contribuições já previstas por outras operações)
+  let opcoesEmprestimo: EmprestimoOpcao[] = [];
+  if (editavel && !operacaoAtiva && a.status === "ativo") {
+    const [{ data: emps }, { data: opsAtivas }] = await Promise.all([
+      supabase.from("vw_emprestimo_posicao").select("id, codigo, credor_nome, juros_mensal, status").eq("status", "ativo").order("codigo"),
+      supabase.from("vw_operacoes").select("emprestimo_id, contribuicao_juros_prevista").eq("ativa", true),
+    ]);
+    const contrib = (opsAtivas ?? []) as Pick<OperacaoView, "emprestimo_id" | "contribuicao_juros_prevista">[];
+    opcoesEmprestimo = ((emps ?? []) as Pick<EmprestimoPosicao, "id" | "codigo" | "credor_nome" | "juros_mensal">[]).map((e) => ({
+      id: e.id,
+      codigo: e.codigo,
+      credor_nome: e.credor_nome,
+      juros_mensal: e.juros_mensal,
+      contribuicoes_atuais: contrib.filter((c) => c.emprestimo_id === e.id).map((c) => c.contribuicao_juros_prevista),
+    }));
+  }
+  const proximaParcela = parcelas.find((p) => Number(p.saldo) > 0) ?? parcelas[0] ?? null;
 
   let auditoria: RegistroAuditoria[] = [];
   if (aba === "historico" && perfil?.papel === "admin") {
@@ -100,6 +142,14 @@ export default async function AcordoPage({
               <Link href={`/acordos/${id}/editar`} className={buttonClasses("secondary", "sm")}>
                 <Pencil className="h-4 w-4" /> Editar
               </Link>
+              {!operacaoAtiva && a.status === "ativo" && (
+                <OperacaoDialog
+                  acordoId={id}
+                  acordoCodigo={a.codigo}
+                  valorParcelaReferencia={proximaParcela?.valor ?? null}
+                  emprestimos={opcoesEmprestimo}
+                />
+              )}
               <RecebimentoDialog
                 acordoId={id}
                 parcelas={parcelas.map((p) => ({ id: p.id, numero: p.numero, data_vencimento: p.data_vencimento, saldo: p.saldo }))}
@@ -127,6 +177,22 @@ export default async function AcordoPage({
           tone={a.parcelas_em_carencia > 0 ? "warning" : "default"}
         />
       </div>
+
+      {operacaoAtiva && (
+        <Link
+          href={`/acordos/${id}?aba=operacao`}
+          className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-brand-100 bg-gradient-to-r from-brand-50 via-white to-violet-50 px-4 py-3 text-sm hover:border-brand-200"
+        >
+          <span className="font-semibold text-brand-800">{operacaoAtiva.codigo}</span>
+          <span className="text-slate-600">
+            alimenta o empréstimo <strong>{operacaoAtiva.emprestimo_codigo}</strong> ·{" "}
+            {formatDecimalBR(operacaoAtiva.percentual_emprestimo)}% juros · {formatDecimalBR(operacaoAtiva.percentual_reserva)}% reserva
+          </span>
+          <span className="ml-auto tabular text-slate-500">
+            destinado {formatBRL(operacaoAtiva.total_destinado)}
+          </span>
+        </Link>
+      )}
 
       {!diferenca.isZero() && a.qtd_parcelas > 0 && (
         <div className="mt-4">
@@ -225,6 +291,7 @@ export default async function AcordoPage({
                   <Th>Data</Th>
                   <Th align="right">Valor</Th>
                   <Th>Abatimento</Th>
+                  <Th>Destinação</Th>
                   <Th>Forma</Th>
                   <Th>Origem</Th>
                   <Th>Observações</Th>
@@ -232,7 +299,7 @@ export default async function AcordoPage({
                 </tr>
               </thead>
               <tbody>
-                {recebimentos.length === 0 && <EmptyRow colSpan={7}>Nenhum recebimento registrado.</EmptyRow>}
+                {recebimentos.length === 0 && <EmptyRow colSpan={8}>Nenhum recebimento registrado.</EmptyRow>}
                 {recebimentos.map((r) => {
                   const estornado = !!r.estornado_em;
                   const imps = [...(r.acordo_recebimento_imputacoes ?? [])].sort(
@@ -250,6 +317,23 @@ export default async function AcordoPage({
                             </li>
                           ))}
                         </ul>
+                      </Td>
+                      <Td className="whitespace-normal">
+                        {(() => {
+                          const d = destinoPorRecebimento.get(r.id);
+                          if (!d) return <span className="text-xs text-slate-400">{estornado ? "—" : "Sem operação"}</span>;
+                          return (
+                            <ul className="space-y-0.5 text-xs">
+                              {(["emprestimo", "reserva", "remanescente"] as const)
+                                .filter((k) => d[k] > 0)
+                                .map((k) => (
+                                  <li key={k}>
+                                    {DESTINO_LABEL[k].label}: <span className="tabular">{formatBRL(d[k])}</span>
+                                  </li>
+                                ))}
+                            </ul>
+                          );
+                        })()}
                       </Td>
                       <Td>{r.forma_pagamento ?? "—"}</Td>
                       <Td className="whitespace-normal text-xs">
@@ -279,6 +363,78 @@ export default async function AcordoPage({
               </tbody>
             </Table>
           </Card>
+        )}
+
+        {aba === "operacao" && (
+          <div className="space-y-4">
+            {operacoes.length === 0 && (
+              <Card>
+                <CardBody className="py-10 text-center">
+                  <p className="text-sm text-slate-600">Este acordo ainda não alimenta nenhum empréstimo.</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Use “Vincular a empréstimo” para que cada recebimento pague juros e forme a reserva automaticamente.
+                  </p>
+                </CardBody>
+              </Card>
+            )}
+            {operacoes.map((o) => (
+              <Card key={o.id} className={cn(!o.ativa && "opacity-70")}>
+                <CardHeader
+                  title={
+                    <span className="flex flex-wrap items-center gap-2">
+                      {o.codigo}
+                      <Badge tone={o.ativa ? "blue" : "gray"}>{o.ativa ? "Ativa" : "Encerrada"}</Badge>
+                    </span>
+                  }
+                  description={
+                    <>
+                      Alimenta o empréstimo{" "}
+                      <Link href={`/emprestimos/${o.emprestimo_id}`} className="font-medium text-brand-700 hover:underline">
+                        {o.emprestimo_codigo}
+                      </Link>{" "}
+                      ({o.credor_nome}, juros de {formatBRL(o.emprestimo_juros_mensal)}/mês) · criada em {formatDateBR(o.criado_em.slice(0, 10))}
+                      {o.encerrada_em && <> · encerrada em {formatDateTimeBR(o.encerrada_em)}: {o.motivo_encerramento}</>}
+                    </>
+                  }
+                  actions={
+                    editavel && o.ativa ? (
+                      <EncerrarOperacaoButton operacaoId={o.id} codigo={o.codigo} acordoId={id} emprestimoId={o.emprestimo_id} />
+                    ) : undefined
+                  }
+                />
+                <CardBody className="space-y-4">
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="rounded-xl bg-brand-50 p-3">
+                      <p className="text-xs text-slate-500">{formatDecimalBR(o.percentual_emprestimo)}% para juros</p>
+                      <p className="tabular mt-1 text-lg font-semibold text-brand-700">{formatBRL(o.total_juros)}</p>
+                    </div>
+                    <div className="rounded-xl bg-emerald-50 p-3">
+                      <p className="text-xs text-slate-500">{formatDecimalBR(o.percentual_reserva)}% para reserva</p>
+                      <p className="tabular mt-1 text-lg font-semibold text-emerald-700">{formatBRL(o.total_reserva)}</p>
+                    </div>
+                    <div className="rounded-xl bg-violet-50 p-3">
+                      <p className="text-xs text-slate-500">Remanescente</p>
+                      <p className="tabular mt-1 text-lg font-semibold text-violet-700">{formatBRL(o.total_remanescente)}</p>
+                    </div>
+                  </div>
+                  <SplitBar
+                    partes={[
+                      { valor: Number(o.total_juros), tone: "brand" },
+                      { valor: Number(o.total_reserva), tone: "green" },
+                      { valor: Number(o.total_remanescente), tone: "violet" },
+                    ]}
+                  />
+                  {o.ativa && o.proxima_parcela_valor !== null && (
+                    <p className="text-sm text-slate-600">
+                      Próxima parcela: {formatBRL(o.proxima_parcela_valor)} em {formatDateBR(o.proxima_parcela_vencimento)} →
+                      contribuição prevista de <strong>{formatBRL(o.contribuicao_juros_prevista)}</strong> para os juros.
+                    </p>
+                  )}
+                  {o.observacoes && <p className="whitespace-pre-wrap text-sm text-slate-600">{o.observacoes}</p>}
+                </CardBody>
+              </Card>
+            ))}
+          </div>
         )}
 
         {aba === "historico" && <HistoricoAuditoria registros={auditoria} admin={perfil?.papel === "admin"} />}

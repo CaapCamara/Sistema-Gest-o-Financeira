@@ -9,6 +9,8 @@ import {
   FileCheck2,
   ShieldCheck,
   ListChecks,
+  ArrowRightLeft,
+  Layers,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,9 +33,16 @@ export const NAVEGACAO: NavGroup[] = [
     itens: [{ href: "/dashboard", label: "Painel", icon: LayoutDashboard }],
   },
   {
+    titulo: "Gestão financeira",
+    itens: [
+      { href: "/operacoes", label: "Operações", icon: ArrowRightLeft },
+      { href: "/remanescente", label: "Montante remanescente", icon: Layers },
+    ],
+  },
+  {
     titulo: "Empréstimos",
     itens: [
-      { href: "/emprestimos", label: "Operações", icon: Landmark },
+      { href: "/emprestimos", label: "Empréstimos", icon: Landmark },
       { href: "/credores", label: "Credores", icon: Users },
       { href: "/reservas", label: "Reservas", icon: PiggyBank },
       { href: "/simulador", label: "Simulador", icon: Calculator },

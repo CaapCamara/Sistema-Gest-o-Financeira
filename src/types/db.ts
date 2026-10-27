@@ -14,7 +14,9 @@ export type ModoParcelas = "automatico" | "manual";
 export type OrigemRecebimento = "manual" | "extrato";
 export type SituacaoParcela = "recebida" | "parcial" | "a_vencer" | "em_carencia" | "parcial_atrasada" | "atrasada";
 export type TipoDocumento = "ata_audiencia" | "sentenca" | "planilha_acordo" | "comprovante_protocolo" | "complementar";
-export type TipoMovimentacao = "anotacao" | "processo" | "acordo" | "recebimento" | "protocolo" | "documento";
+export type TipoMovimentacao = "anotacao" | "processo" | "acordo" | "recebimento" | "protocolo" | "documento" | "operacao";
+export type DestinoOperacao = "emprestimo" | "reserva" | "remanescente";
+export type CotaOperacao = "emprestimo" | "reserva" | "livre";
 export type SituacaoFinanceiraAcordo = "sem_parcelas" | "quitado" | "em_atraso" | "em_carencia" | "em_dia";
 
 type Num = number | string;
@@ -136,6 +138,8 @@ export interface Pagamento {
   estornado_em: string | null;
   motivo_estorno: string | null;
   criado_em: string;
+  operacao_id: string | null;
+  recebimento_id: string | null;
   pagamento_imputacoes?: Imputacao[];
 }
 
@@ -151,6 +155,8 @@ export interface MovimentoReserva {
   estornado_em: string | null;
   motivo_estorno: string | null;
   criado_em: string;
+  operacao_id: string | null;
+  recebimento_id: string | null;
 }
 
 export interface Processo {
@@ -363,6 +369,92 @@ export interface RegistroAuditoria {
   dados_depois: Record<string, unknown> | null;
   usuario_id: string | null;
   criado_em: string;
+}
+
+/** vw_operacoes */
+export interface OperacaoView {
+  id: string;
+  codigo: string;
+  acordo_id: string;
+  acordo_codigo: string;
+  processo_id: string;
+  processo_codigo: string;
+  numero_processo: string | null;
+  emprestimo_id: string;
+  emprestimo_codigo: string;
+  credor_nome: string;
+  emprestimo_juros_mensal: Num;
+  percentual_emprestimo: Num;
+  percentual_reserva: Num;
+  percentual_livre: Num;
+  observacoes: string | null;
+  encerrada_em: string | null;
+  motivo_encerramento: string | null;
+  ativa: boolean;
+  criado_em: string;
+  total_juros: Num;
+  total_reserva: Num;
+  total_remanescente: Num;
+  total_destinado: Num;
+  ultima_destinacao: string | null;
+  proxima_parcela_valor: Num | null;
+  proxima_parcela_vencimento: string | null;
+  contribuicao_juros_prevista: Num;
+}
+
+/** vw_operacao_destinacoes */
+export interface DestinacaoView {
+  id: string;
+  operacao_id: string;
+  operacao_codigo: string;
+  recebimento_id: string;
+  parcela_id: string;
+  parcela_numero: number;
+  emprestimo_id: string;
+  emprestimo_codigo: string;
+  acordo_id: string;
+  acordo_codigo: string;
+  processo_id: string;
+  processo_codigo: string;
+  data_destinacao: string;
+  cota: CotaOperacao;
+  destino: DestinoOperacao;
+  valor: Num;
+  pagamento_id: string | null;
+  reserva_movimento_id: string | null;
+  estornado_em: string | null;
+  motivo_estorno: string | null;
+}
+
+export interface FonteCobertura {
+  operacao_id: string | null;
+  operacao_codigo: string | null;
+  acordo_codigo: string | null;
+  processo_codigo: string | null;
+  valor: Num;
+}
+
+/** vw_emprestimo_cobertura: competência atual de cada empréstimo e quem a pagou */
+export interface CoberturaEmprestimo {
+  emprestimo_id: string;
+  competencia_id: string;
+  numero: number;
+  data_vencimento: string;
+  juros_devido: Num;
+  juros_pago: Num;
+  juros_em_aberto: Num;
+  situacao: SituacaoCompetencia;
+  vencida: boolean;
+  fontes: FonteCobertura[];
+}
+
+/** vw_emprestimo_quitacao_sugerida */
+export interface QuitacaoSugerida {
+  emprestimo_id: string;
+  principal_devido: Num;
+  reserva_saldo: Num;
+  data_sugerida: string;
+  reserva_cobre_principal: boolean;
 }
 
 export type ActionResult<T = undefined> =

@@ -11,6 +11,10 @@ function revalidar(id?: string, processoId?: string) {
   revalidatePath("/acordos");
   revalidatePath("/processos");
   revalidatePath("/dashboard");
+  revalidatePath("/operacoes");
+  revalidatePath("/remanescente");
+  revalidatePath("/emprestimos");
+  revalidatePath("/reservas");
   if (id) revalidatePath(`/acordos/${id}`);
   if (processoId) revalidatePath(`/processos/${processoId}`);
 }

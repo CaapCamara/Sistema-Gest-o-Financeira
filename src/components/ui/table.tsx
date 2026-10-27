@@ -13,7 +13,7 @@ export function Th({ className, align, ...props }: React.ThHTMLAttributes<HTMLTa
   return (
     <th
       className={cn(
-        "whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500",
+        "whitespace-nowrap border-b border-slate-200 bg-slate-50/70 px-3 py-2.5 text-xs font-semibold text-slate-500",
         align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left",
         className,
       )}
@@ -26,7 +26,7 @@ export function Td({ className, align, ...props }: React.TdHTMLAttributes<HTMLTa
   return (
     <td
       className={cn(
-        "whitespace-nowrap border-b border-slate-100 px-3 py-2.5",
+        "whitespace-nowrap border-b border-slate-100 px-3 py-3",
         align === "right" ? "tabular text-right" : align === "center" ? "text-center" : "text-left",
         className,
       )}
@@ -38,7 +38,7 @@ export function Td({ className, align, ...props }: React.TdHTMLAttributes<HTMLTa
 export function EmptyRow({ colSpan, children }: { colSpan: number; children: React.ReactNode }) {
   return (
     <tr>
-      <td colSpan={colSpan} className="px-3 py-10 text-center text-sm text-slate-500">
+      <td colSpan={colSpan} className="px-3 py-12 text-center text-sm text-slate-500">
         {children}
       </td>
     </tr>
