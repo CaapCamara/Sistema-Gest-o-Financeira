@@ -135,9 +135,9 @@ export function OperacaoDialog({
             <FormAlert tone={cobertura.diferenca.isZero() ? "success" : "info"}>
               Somando as operações ativas deste empréstimo, a contribuição prevista para os juros fica em{" "}
               <strong>{formatBRL(cobertura.total)}</strong> por mês, para juros de {formatBRL(cobertura.juros)}.{" "}
-              {cobertura.diferenca.isNegative()
+              {cobertura.diferenca.lt(0)
                 ? `Faltam ${formatBRL(cobertura.diferenca.abs())} por mês, que precisarão de outra fonte.`
-                : cobertura.diferenca.isPositive()
+                : cobertura.diferenca.gt(0)
                   ? `Sobram ${formatBRL(cobertura.diferenca)} por mês, que vão para o montante remanescente.`
                   : "A parcela de juros fica exatamente coberta."}
             </FormAlert>

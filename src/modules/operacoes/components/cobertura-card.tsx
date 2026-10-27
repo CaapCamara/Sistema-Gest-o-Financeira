@@ -96,10 +96,10 @@ export function CoberturaCard({
               Previsto pelas {ativas.length} operação(ões) ativa(s):{" "}
               <strong className="tabular text-slate-900">{formatBRL(prevista.total)}</strong> por mês para juros de{" "}
               {formatBRL(prevista.juros)}
-              {prevista.diferenca.isNegative() && (
+              {prevista.diferenca.lt(0) && (
                 <span className="text-amber-700"> · faltam {formatBRL(prevista.diferenca.abs())}/mês</span>
               )}
-              {prevista.diferenca.isPositive() && (
+              {prevista.diferenca.gt(0) && (
                 <span className="text-violet-700"> · sobram {formatBRL(prevista.diferenca)}/mês (remanescente)</span>
               )}
             </p>
