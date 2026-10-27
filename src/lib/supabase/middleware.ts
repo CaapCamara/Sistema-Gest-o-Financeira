@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const ROTAS_PUBLICAS = ["/login"];
+// /definir-senha não é pública: exige a sessão criada por /auth/confirm.
+const ROTAS_PUBLICAS = ["/login", "/esqueci-senha", "/auth/confirm"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });

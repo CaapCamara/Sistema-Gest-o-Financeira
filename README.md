@@ -128,6 +128,30 @@ supabase/
 - A tabela `auditoria` é preenchida por trigger em todas as tabelas de negócio e é somente leitura (visível ao admin).
 - Documentos ficam em bucket privado, com políticas no `storage.objects`: leitura para usuários ativos, envio só para admin e operador e só nas pastas previstas. Não há atualização nem exclusão de arquivos pela aplicação.
 - A `service_role key` **nunca** é usada pela aplicação.
+- Senhas com no mínimo 10 caracteres, com letras e números, exigidas pelo Supabase Auth e validadas no formulário.
+
+## Acesso: convite, definição e redefinição de senha
+
+| Rota | Pública | Função |
+|---|---|---|
+| `/login` | sim | Entrada com e-mail e senha. Link "Esqueci minha senha". |
+| `/esqueci-senha` | sim | Envia o link de redefinição. A resposta é sempre a mesma, para não revelar quais e-mails existem. |
+| `/auth/confirm` | sim | Valida o link do e-mail **no servidor** (`verifyOtp` com `token_hash`, ou `exchangeCodeForSession` com `code`), grava a sessão em cookie e redireciona só para caminhos internos. |
+| `/definir-senha` | não | Exige a sessão criada pelo link. O usuário define a senha e entra no painel. |
+
+Fluxo do convite: o admin convida em **Authentication → Users → Invite user**. O convidado clica no link, define a senha em `/definir-senha` e entra. O primeiro usuário vira `admin`.
+
+**Modelos de e-mail.** Os modelos em `supabase/templates/` (convite e redefinição, em português) apontam para `/auth/confirm?token_hash=...`, o formato recomendado pelo Supabase para SSR. O Supabase só permite editar modelos com **SMTP próprio**. Sem ele, os e-mails saem no modelo padrão, e a aplicação continua funcionando:
+
+- a redefinição volta com `?code=` para `/auth/confirm`;
+- o convite chega pelo fluxo implícito (`#access_token`), tratado no navegador por `src/app/(auth)/login/link-implicito.tsx`.
+
+## Produção: checklist
+
+1. **SMTP próprio (obrigatório para uso real).** O SMTP padrão do Supabase só entrega para membros da equipe do projeto e tem limite baixo de envios por hora. Configure um provedor (Resend, Amazon SES, Postmark etc.) com domínio próprio verificado (SPF/DKIM) em **Authentication → Emails → SMTP Settings**. Depois cole os modelos de `supabase/templates/` em **Emails → Templates** (Invite user e Reset password).
+2. **URL Configuration.** *Site URL* = domínio público da aplicação. *Redirect URLs*: `https://SEU-DOMINIO/**`.
+3. **Variáveis na Vercel:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `NEXT_PUBLIC_SITE_URL`.
+4. **Cadastro público desativado** e **política de senha** (10 caracteres, letras e números) em **Authentication → Sign In / Providers**.
 
 ## Como rodar
 
@@ -153,7 +177,7 @@ npm run dev                  # http://localhost:3000
 
 ### 3. Vercel
 
-Importe o repositório na Vercel e configure as variáveis `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Em seguida, no Supabase, adicione o domínio da Vercel em **Authentication → URL Configuration**.
+Importe o repositório na Vercel e configure as variáveis `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `NEXT_PUBLIC_SITE_URL`. Em seguida, no Supabase, informe o domínio da Vercel em **Authentication → URL Configuration** (veja o checklist de produção acima).
 
 ## Testes
 

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+  <body style="margin:0;padding:24px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px">
+      <tr>
+        <td style="padding:32px">
+          <h1 style="margin:0 0 16px;font-size:20px">Redefinição de senha</h1>
+          <p style="margin:0 0 16px;font-size:14px;line-height:1.6">
+            Recebemos um pedido para redefinir a senha da conta <strong>{{ .Email }}</strong> no sistema Gestão Financeira.
+          </p>
+          <p style="margin:24px 0">
+            <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=recovery"
+               style="display:inline-block;padding:12px 20px;background:#1d4ed8;color:#ffffff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:bold">
+              Redefinir minha senha
+            </a>
+          </p>
+          <p style="margin:0;font-size:12px;line-height:1.6;color:#64748b">
+            O link vale por 1 hora e pode ser usado uma única vez. Se você não fez esse pedido, ignore esta mensagem: sua senha continua a mesma.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
