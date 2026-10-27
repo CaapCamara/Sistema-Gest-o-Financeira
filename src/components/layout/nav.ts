@@ -8,6 +8,7 @@ import {
   Handshake,
   FileCheck2,
   ShieldCheck,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 
@@ -43,11 +44,14 @@ export const NAVEGACAO: NavGroup[] = [
     itens: [
       { href: "/processos", label: "Processos", icon: Scale },
       { href: "/acordos", label: "Acordos", icon: Handshake },
-      { href: "/protocolos", label: "Protocolos GOV", icon: FileCheck2, emBreve: true },
+      { href: "/protocolos", label: "Protocolos GOV", icon: FileCheck2 },
     ],
   },
   {
     titulo: "Administração",
-    itens: [{ href: "/auditoria", label: "Auditoria", icon: ShieldCheck, somenteAdmin: true }],
+    itens: [
+      { href: "/configuracoes/status-protocolo", label: "Status de protocolo", icon: ListChecks, somenteAdmin: true },
+      { href: "/auditoria", label: "Auditoria", icon: ShieldCheck, somenteAdmin: true },
+    ],
   },
 ];

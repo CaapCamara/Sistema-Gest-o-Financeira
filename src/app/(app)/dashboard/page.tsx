@@ -34,6 +34,8 @@ export default async function DashboardPage() {
     { data: parcelasMes },
     { data: parcelasProximas },
     { data: recebimentosMes },
+    { count: protocolosPendentes },
+    { count: processosSemNupe },
   ] = await Promise.all([
     supabase.from("vw_emprestimo_posicao").select("*"),
     supabase.from("vw_competencias").select("emprestimo_id, juros_devido, juros_em_aberto").gte("data_vencimento", inicioMes).lte("data_vencimento", fimMes),
@@ -61,6 +63,8 @@ export default async function DashboardPage() {
       .order("data_vencimento")
       .limit(50),
     supabase.from("acordo_recebimentos").select("valor").is("estornado_em", null).gte("data_recebimento", inicioMes).lte("data_recebimento", fimMes),
+    supabase.from("vw_protocolos").select("id", { count: "exact", head: true }).eq("pendente", true),
+    supabase.from("vw_processo_resumo").select("id", { count: "exact", head: true }).eq("status", "ativo").eq("tem_nupe", false),
   ]);
 
   const todos = (pos ?? []) as EmprestimoPosicao[];
@@ -174,8 +178,26 @@ export default async function DashboardPage() {
           icon={<AlertTriangle className="h-4 w-4" />}
           hint={`${formatBRL(valorAtrasado)} após a carência`}
         />
-        <Stat label="Protocolos pendentes" value="—" icon={<FileCheck2 className="h-4 w-4" />} hint="próxima etapa" />
-        <Stat label="Processos sem NUPE" value="—" icon={<FileCheck2 className="h-4 w-4" />} hint="próxima etapa" />
+        <Link href="/protocolos?filtro=pendentes" className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+          <Stat
+            label="Protocolos pendentes"
+            value={protocolosPendentes ?? 0}
+            tone={(protocolosPendentes ?? 0) > 0 ? "warning" : "default"}
+            icon={<FileCheck2 className="h-4 w-4" />}
+            hint="status marcados como pendentes"
+            className="h-full hover:border-brand-200"
+          />
+        </Link>
+        <Link href="/processos?filtro=sem_nupe" className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+          <Stat
+            label="Processos sem NUPE"
+            value={processosSemNupe ?? 0}
+            tone={(processosSemNupe ?? 0) > 0 ? "warning" : "default"}
+            icon={<FileCheck2 className="h-4 w-4" />}
+            hint="processos ativos"
+            className="h-full hover:border-brand-200"
+          />
+        </Link>
       </div>
 
       <Card className="mt-6">

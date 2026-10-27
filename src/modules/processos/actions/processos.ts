@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { assertPodeEditar } from "@/lib/auth";
 import { erroBanco, erroGenerico, erroValidacao } from "@/lib/actions";
+import { zDate } from "@/lib/zod-br";
 import { processoSchema, type ProcessoInput } from "../schemas/processo";
 import type { ActionResult } from "@/types/db";
 
@@ -71,4 +73,27 @@ export async function excluirProcesso(id: string): Promise<ActionResult> {
   if (error) return erroBanco(error);
   revalidar();
   return { ok: true, message: "Processo excluído." };
+}
+
+const anotacaoSchema = z.object({
+  data_movimentacao: zDate(),
+  descricao: z.string().trim().min(3, "Descreva a movimentação.").max(2000),
+});
+
+/** Anotação manual na linha do tempo do processo (imutável depois de gravada). */
+export async function registrarAnotacao(
+  processoId: string,
+  input: z.input<typeof anotacaoSchema>,
+): Promise<ActionResult> {
+  const negado = await guard();
+  if (negado) return negado;
+  const parsed = anotacaoSchema.safeParse(input);
+  if (!parsed.success) return erroValidacao(parsed.error);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("processo_movimentacoes")
+    .insert({ processo_id: processoId, tipo: "anotacao", ...parsed.data });
+  if (error) return erroBanco(error);
+  revalidatePath(`/processos/${processoId}`);
+  return { ok: true, message: "Anotação registrada." };
 }

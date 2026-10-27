@@ -16,12 +16,27 @@ import { buttonClasses } from "@/components/ui/button";
 import { HistoricoAuditoria } from "@/components/ui/historico-auditoria";
 import { POLO_LABEL, STATUS_PROCESSO_LABEL } from "@/modules/processos/labels";
 import { SITUACAO_ACORDO_LABEL, STATUS_ACORDO_LABEL } from "@/modules/acordos/labels";
-import type { AcordoPosicao, ProcessoParte, ProcessoResumo, RegistroAuditoria } from "@/types/db";
+import { Movimentacoes } from "@/modules/processos/components/movimentacoes";
+import { DocumentosCard, type DocumentoListado } from "@/modules/documentos/components/documentos-card";
+import { tomStatusProtocolo } from "@/modules/protocolos/labels";
+import { listarUsuarios } from "@/modules/protocolos/queries";
+import type {
+  AcordoPosicao,
+  Documento,
+  Movimentacao,
+  ProcessoParte,
+  ProcessoResumo,
+  ProtocoloView,
+  RegistroAuditoria,
+} from "@/types/db";
 
 export const metadata: Metadata = { title: "Processo" };
 
 const ABAS = [
   { id: "acordos", label: "Acordos" },
+  { id: "protocolos", label: "Protocolos GOV" },
+  { id: "documentos", label: "Documentos" },
+  { id: "movimentacoes", label: "Movimentações" },
   { id: "historico", label: "Histórico de alterações" },
 ] as const;
 
@@ -38,16 +53,56 @@ export default async function ProcessoPage({
   const perfil = await getPerfil();
   const editavel = podeEditar(perfil);
 
-  const [{ data: resumo }, { data: partesData }, { data: acordosData }] = await Promise.all([
+  const [{ data: resumo }, { data: partesData }, { data: acordosData }, { data: vinculos }] = await Promise.all([
     supabase.from("vw_processo_resumo").select("*").eq("id", id).maybeSingle(),
     supabase.from("processo_partes").select("*").eq("processo_id", id).order("polo").order("nome"),
     supabase.from("vw_acordo_posicao").select("*").eq("processo_id", id).order("criado_em", { ascending: false }),
+    supabase.from("protocolo_processos").select("protocolo_id").eq("processo_id", id),
   ]);
   if (!resumo) notFound();
 
   const p = resumo as ProcessoResumo;
   const partes = (partesData ?? []) as ProcessoParte[];
   const acordos = (acordosData ?? []) as AcordoPosicao[];
+  const protocoloIds = (vinculos ?? []).map((v) => v.protocolo_id as string);
+  const { data: protsData } = protocoloIds.length
+    ? await supabase.from("vw_protocolos").select("*").in("id", protocoloIds).order("criado_em", { ascending: false })
+    : { data: [] };
+  const protocolos = (protsData ?? []) as ProtocoloView[];
+
+  let documentos: DocumentoListado[] = [];
+  if (aba === "documentos") {
+    const filtro = protocoloIds.length
+      ? `processo_id.eq.${id},protocolo_id.in.(${protocoloIds.join(",")})`
+      : `processo_id.eq.${id}`;
+    const { data } = await supabase
+      .from("documentos")
+      .select("*")
+      .or(filtro)
+      .is("excluido_em", null)
+      .order("criado_em", { ascending: false });
+    const rotulo = new Map(protocolos.map((x) => [x.id, x.nupe ? `${x.codigo} (NUPE ${x.nupe})` : x.codigo]));
+    documentos = ((data ?? []) as Documento[]).map((d) =>
+      d.protocolo_id ? { ...d, origem: { href: `/protocolos/${d.protocolo_id}?aba=documentos`, label: `protocolo ${rotulo.get(d.protocolo_id) ?? ""}` } } : d,
+    );
+  }
+
+  let movimentacoes: Movimentacao[] = [];
+  let autores: Record<string, string> = {};
+  if (aba === "movimentacoes") {
+    const [{ data }, usuarios] = await Promise.all([
+      supabase
+        .from("processo_movimentacoes")
+        .select("*")
+        .eq("processo_id", id)
+        .order("data_movimentacao", { ascending: false })
+        .order("criado_em", { ascending: false })
+        .limit(500),
+      listarUsuarios(supabase),
+    ]);
+    movimentacoes = (data ?? []) as Movimentacao[];
+    autores = Object.fromEntries(usuarios.map((u) => [u.id, u.nome]));
+  }
 
   let auditoria: RegistroAuditoria[] = [];
   if (aba === "historico" && perfil?.papel === "admin") {
@@ -70,6 +125,7 @@ export default async function ProcessoPage({
             {p.codigo}
             <Badge tone={STATUS_PROCESSO_LABEL[p.status].tone}>{STATUS_PROCESSO_LABEL[p.status].label}</Badge>
             {p.em_atraso && <Badge tone="red">Parcelas atrasadas</Badge>}
+            {!p.tem_nupe && <Badge tone="amber">Sem NUPE</Badge>}
           </span>
         }
         description={p.numero_processo ? `Processo nº ${p.numero_processo}` : "Sem número de processo"}
@@ -147,9 +203,12 @@ export default async function ProcessoPage({
                 <p className="whitespace-pre-wrap text-slate-700">{p.observacoes}</p>
               </div>
             )}
-            <div className="flex items-start gap-2 rounded-lg border border-dashed border-slate-300 p-3 text-xs text-slate-500">
-              <FileCheck2 className="mt-0.5 h-4 w-4 shrink-0" />
-              Protocolos GOV (NUPE, responsável e status) e documentos anexos entram na próxima etapa.
+            <div>
+              <p className="text-slate-500">NUPE</p>
+              <p className={cn("font-medium", !p.tem_nupe && "text-amber-700")}>{p.nupes || "Ainda não informado"}</p>
+              <p className="text-xs text-slate-500">
+                {p.qtd_protocolos} protocolo(s){p.protocolos_pendentes > 0 ? ` · ${p.protocolos_pendentes} pendente(s)` : ""}
+              </p>
             </div>
           </CardBody>
         </Card>
@@ -218,6 +277,66 @@ export default async function ProcessoPage({
               </tbody>
             </Table>
           </Card>
+        )}
+
+        {aba === "protocolos" && (
+          <Card>
+            <CardHeader
+              title="Protocolos GOV"
+              description="Controle manual. Um protocolo pode abranger este e outros processos."
+              actions={
+                editavel && (
+                  <Link href={`/protocolos/novo?processo=${id}`} className={buttonClasses("primary", "sm")}>
+                    <FileCheck2 className="h-4 w-4" /> Novo protocolo
+                  </Link>
+                )
+              }
+            />
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Código</Th>
+                  <Th>NUPE</Th>
+                  <Th>Data</Th>
+                  <Th>Responsável</Th>
+                  <Th align="right">Processos</Th>
+                  <Th>Status</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {protocolos.length === 0 && <EmptyRow colSpan={6}>Nenhum protocolo vinculado.</EmptyRow>}
+                {protocolos.map((x) => (
+                  <tr key={x.id} className="hover:bg-slate-50">
+                    <Td>
+                      <Link href={`/protocolos/${x.id}`} className="font-medium text-brand-700 hover:underline">
+                        {x.codigo}
+                      </Link>
+                    </Td>
+                    <Td>{x.nupe ?? <span className="text-amber-700">sem NUPE</span>}</Td>
+                    <Td>{formatDateBR(x.data_protocolo)}</Td>
+                    <Td>{x.responsavel_nome ?? "—"}</Td>
+                    <Td align="right" title={x.processos}>{x.qtd_processos}</Td>
+                    <Td>
+                      <Badge tone={tomStatusProtocolo(x.pendente)}>{x.status_nome}</Badge>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Card>
+        )}
+
+        {aba === "documentos" && (
+          <DocumentosCard
+            destino={{ entidade: "processo", id }}
+            documentos={documentos}
+            editavel={editavel}
+            descricao="Ata, sentença, planilha do acordo e complementares. Comprovantes anexados aos protocolos também aparecem aqui."
+          />
+        )}
+
+        {aba === "movimentacoes" && (
+          <Movimentacoes processoId={id} movimentacoes={movimentacoes} autores={autores} editavel={editavel} />
         )}
 
         {aba === "historico" && <HistoricoAuditoria registros={auditoria} admin={perfil?.papel === "admin"} />}

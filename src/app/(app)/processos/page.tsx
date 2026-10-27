@@ -20,6 +20,7 @@ const FILTROS = [
   { valor: "", label: "Todos" },
   { valor: "ativo", label: "Ativos" },
   { valor: "atraso", label: "Com parcelas atrasadas" },
+  { valor: "sem_nupe", label: "Sem NUPE" },
   { valor: "encerrado", label: "Encerrados" },
   { valor: "arquivado", label: "Arquivados" },
 ];
@@ -32,12 +33,13 @@ export default async function ProcessosPage({ searchParams }: { searchParams: Pr
   let query = supabase.from("vw_processo_resumo").select("*").order("criado_em", { ascending: false });
   if (filtro === "ativo" || filtro === "encerrado" || filtro === "arquivado") query = query.eq("status", filtro);
   if (filtro === "atraso") query = query.eq("em_atraso", true);
+  if (filtro === "sem_nupe") query = query.eq("tem_nupe", false).eq("status", "ativo");
   // Remove caracteres com significado no filtro do PostgREST
   const termo = q.replace(/[,()%*\\"]/g, " ").trim();
   if (termo) {
     const like = `%${termo}%`;
     query = query.or(
-      `codigo.ilike.${like},numero_processo.ilike.${like},requerentes.ilike.${like},requeridos.ilike.${like}`,
+      `codigo.ilike.${like},numero_processo.ilike.${like},requerentes.ilike.${like},requeridos.ilike.${like},nupes.ilike.${like}`,
     );
   }
   const { data } = await query;
@@ -72,7 +74,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: Pr
         ))}
         <form className="ml-auto flex w-full items-center gap-2 sm:w-auto" action="/processos">
           {filtro && <input type="hidden" name="filtro" value={filtro} />}
-          <Input name="q" defaultValue={termo} placeholder="Número, código ou parte" className="h-8 sm:w-64" aria-label="Buscar processos" />
+          <Input name="q" defaultValue={termo} placeholder="Número, código, parte ou NUPE" className="h-8 sm:w-64" aria-label="Buscar processos" />
           <button className={buttonClasses("secondary", "sm")} aria-label="Buscar">
             <Search className="h-4 w-4" />
           </button>
@@ -87,6 +89,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: Pr
               <Th>Requerente(s)</Th>
               <Th>Requerido(s)</Th>
               <Th>Audiência</Th>
+              <Th>NUPE</Th>
               <Th align="right">Acordos ativos</Th>
               <Th align="right">Recebido</Th>
               <Th align="right">Em aberto</Th>
@@ -94,7 +97,7 @@ export default async function ProcessosPage({ searchParams }: { searchParams: Pr
             </tr>
           </thead>
           <tbody>
-            {lista.length === 0 && <EmptyRow colSpan={9}>Nenhum processo encontrado.</EmptyRow>}
+            {lista.length === 0 && <EmptyRow colSpan={10}>Nenhum processo encontrado.</EmptyRow>}
             {lista.map((p) => (
               <tr key={p.id} className="hover:bg-slate-50">
                 <Td>
@@ -106,6 +109,9 @@ export default async function ProcessosPage({ searchParams }: { searchParams: Pr
                 <Td className="max-w-[14rem] truncate" title={p.requerentes}>{p.requerentes || "—"}</Td>
                 <Td className="max-w-[14rem] truncate" title={p.requeridos}>{p.requeridos || "—"}</Td>
                 <Td>{formatDateBR(p.data_audiencia)}</Td>
+                <Td className="max-w-[10rem] truncate" title={p.nupes}>
+                  {p.nupes || <span className="text-amber-700">sem NUPE</span>}
+                </Td>
                 <Td align="right">
                   {p.qtd_acordos_ativos > 0 ? `${p.qtd_acordos_ativos} · ${formatBRL(p.valor_acordos_ativos)}` : "—"}
                 </Td>

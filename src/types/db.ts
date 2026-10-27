@@ -13,6 +13,8 @@ export type StatusAcordo = "ativo" | "quitado" | "renegociado" | "cancelado";
 export type ModoParcelas = "automatico" | "manual";
 export type OrigemRecebimento = "manual" | "extrato";
 export type SituacaoParcela = "recebida" | "parcial" | "a_vencer" | "em_carencia" | "parcial_atrasada" | "atrasada";
+export type TipoDocumento = "ata_audiencia" | "sentenca" | "planilha_acordo" | "comprovante_protocolo" | "complementar";
+export type TipoMovimentacao = "anotacao" | "processo" | "acordo" | "recebimento" | "protocolo" | "documento";
 export type SituacaoFinanceiraAcordo = "sem_parcelas" | "quitado" | "em_atraso" | "em_carencia" | "em_dia";
 
 type Num = number | string;
@@ -189,6 +191,10 @@ export interface ProcessoResumo {
   saldo_acordos_ativos: Num;
   parcelas_atrasadas: number;
   em_atraso: boolean;
+  qtd_protocolos: number;
+  protocolos_pendentes: number;
+  tem_nupe: boolean;
+  nupes: string;
 }
 
 export interface Acordo {
@@ -274,6 +280,78 @@ export interface Recebimento {
   motivo_estorno: string | null;
   criado_em: string;
   acordo_recebimento_imputacoes?: RecebimentoImputacao[];
+}
+
+export interface StatusProtocolo {
+  id: string;
+  nome: string;
+  ordem: number;
+  pendente: boolean;
+  ativo: boolean;
+}
+
+export interface Protocolo {
+  id: string;
+  codigo: string;
+  nupe: string | null;
+  data_protocolo: string | null;
+  status_id: string;
+  responsavel_id: string;
+  assunto: string | null;
+  observacoes: string | null;
+  excluido_em: string | null;
+}
+
+export interface ProtocoloView {
+  id: string;
+  codigo: string;
+  nupe: string | null;
+  data_protocolo: string | null;
+  status_id: string;
+  status_nome: string;
+  pendente: boolean;
+  responsavel_id: string;
+  responsavel_nome: string | null;
+  assunto: string | null;
+  observacoes: string | null;
+  criado_em: string;
+  qtd_processos: number;
+  processos: string;
+  qtd_documentos: number;
+}
+
+export interface Usuario {
+  id: string;
+  nome: string;
+}
+
+export interface Documento {
+  id: string;
+  processo_id: string | null;
+  protocolo_id: string | null;
+  tipo: TipoDocumento;
+  descricao: string | null;
+  nome_arquivo: string;
+  storage_path: string;
+  mime_type: string | null;
+  tamanho_bytes: number | null;
+  excluido_em: string | null;
+  motivo_exclusao: string | null;
+  criado_em: string;
+  criado_por: string | null;
+}
+
+export interface Movimentacao {
+  id: string;
+  processo_id: string;
+  data_movimentacao: string;
+  tipo: TipoMovimentacao;
+  descricao: string;
+  automatica: boolean;
+  referencia_tabela: string | null;
+  referencia_id: string | null;
+  criado_em: string;
+  criado_por: string | null;
 }
 
 export interface RegistroAuditoria {

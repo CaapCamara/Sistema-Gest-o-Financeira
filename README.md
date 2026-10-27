@@ -14,8 +14,8 @@ Aplicação web privada para controlar empréstimos, compromissos de pagamento, 
 | 3. Motor financeiro: cronograma, juros, pagamentos, reservas, saldos | ✅ |
 | 4. Simulador de projeções | ✅ |
 | 5. Processos, acordos, parcelas e recebimentos | ✅ |
-| 6. Documentos, protocolos GOV e histórico de movimentações | ⏳ |
-| 7. Painel completo (indicadores do Módulo 2) | ⏳ parcial (falta protocolos e NUPE) |
+| 6. Documentos, protocolos GOV e histórico de movimentações | ✅ |
+| 7. Painel completo (indicadores do Módulo 2) | ✅ |
 | 8. Finalização e implantação | ⏳ |
 
 ## Regras de negócio implementadas (Módulo 1)
@@ -77,13 +77,37 @@ Decisões técnicas que o responsável pode revisar:
 
 Os saldos vêm das views `vw_acordo_parcelas`, `vw_acordo_posicao` e `vw_processo_resumo`. Recebimentos passam pelas funções `registrar_recebimento` e `estornar_recebimento`, e as parcelas por `definir_parcelas`.
 
+## Protocolos GOV, documentos e movimentações (Etapa 6)
+
+Regras confirmadas com o responsável:
+
+1. **Controle manual** dos protocolos no GOV, sem integração automática.
+2. **NUPE em texto livre.** Não pode se repetir entre protocolos ativos.
+3. **Relação N:N:** um processo pode ter vários protocolos e um protocolo pode abranger vários processos.
+4. **O responsável pelo protocolo é sempre um usuário ativo do sistema.**
+5. **Os status do protocolo são configuráveis** pelo admin (menu Administração → Status de protocolo). Cada status indica se conta como **pendente** no painel. A lista começa com "A protocolar" (pendente) e "Protocolado" (não pendente), apenas como ponto de partida.
+
+Documentos:
+
+- Tipos: ata de audiência, sentença, planilha do acordo, comprovante de protocolo e complementar.
+- Ficam no bucket **privado** `documentos` (até 20 MB; PDF, imagens, planilhas, textos e CSV). O navegador envia o arquivo direto ao Storage com uma URL de envio assinada gerada pelo servidor, que define o caminho (`processos/<id>/...` ou `protocolos/<id>/...`). O download passa por `/documentos/<id>`, que confere o acesso e redireciona para uma URL assinada válida por 60 segundos.
+- Documentos podem ser anexados ao processo ou ao protocolo. Os do protocolo aparecem em todos os processos abrangidos.
+- A remoção é lógica, com motivo obrigatório: o arquivo e o registro continuam guardados.
+
+Movimentações (aba do processo):
+
+- Linha do tempo legível, gerada automaticamente por triggers: cadastro e mudanças do processo (status, audiência, número), acordos (cadastro, status, valor), recebimentos e estornos, vínculo e desvínculo de protocolos, mudanças no protocolo (status, NUPE, data, responsável; registradas em todos os processos abrangidos) e documentos anexados ou removidos.
+- O usuário pode registrar anotações manuais. Nenhuma movimentação pode ser editada ou apagada; correções viram nova anotação.
+- A auditoria técnica (campo a campo) continua disponível para o admin na aba "Histórico de alterações".
+
 ## Estrutura
 
 ```
 src/
   app/(auth)/login          login e logout
   app/(app)/...             telas protegidas (painel, empréstimos, credores, reservas, simulador,
-                            processos, acordos, auditoria)
+                            processos, acordos, protocolos, configurações, auditoria)
+  app/documentos/[id]       download de documento por URL assinada temporária
   modules/<modulo>/
     domain/                 regras e cálculos em TypeScript puro, com testes
     schemas/                validação (Zod), compartilhada entre cliente e servidor
@@ -102,6 +126,7 @@ supabase/
 - O **primeiro usuário** criado vira `admin` e os demais entram como `leitor`. O cadastro público está **desativado**: os usuários são convidados pelo painel do Supabase.
 - Os lançamentos financeiros passam por funções no banco (`registrar_pagamento`, `estornar_pagamento`, `registrar_recebimento`, `estornar_recebimento`, `definir_parcelas`), que validam as regras de forma atômica.
 - A tabela `auditoria` é preenchida por trigger em todas as tabelas de negócio e é somente leitura (visível ao admin).
+- Documentos ficam em bucket privado, com políticas no `storage.objects`: leitura para usuários ativos, envio só para admin e operador e só nas pastas previstas. Não há atualização nem exclusão de arquivos pela aplicação.
 - A `service_role key` **nunca** é usada pela aplicação.
 
 ## Como rodar
@@ -146,8 +171,6 @@ npm run db:test      # migrações e regras dos dois módulos no PostgreSQL (req
 - A carência conta dias corridos ou dias úteis? Hoje são **dias corridos**.
 - Integração com extrato bancário: qual banco e qual formato (OFX, CSV, API)? A estrutura já está preparada.
 
-**Protocolos GOV (Etapa 6)**
+**Protocolos GOV**
 
-- Lista de status do protocolo. Ficará numa tabela configurável pelo admin, sem exigir nova migração.
-- Formato do NUPE. Hoje está previsto como texto livre.
-- Se um processo pode ter mais de um protocolo. A proposta é permitir vários.
+- Lista definitiva de status do protocolo no GOV. Basta o admin ajustar a tabela de status; não exige programação.
