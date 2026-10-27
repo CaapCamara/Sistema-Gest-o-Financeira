@@ -27,10 +27,10 @@ export function Dialog({
     <dialog
       ref={ref}
       onClose={onClose}
-      className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-xl border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/50"
+      className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 backdrop:bg-black/75"
     >
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+        <h2 className="text-base font-bold text-slate-950">{title}</h2>
         <button onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Fechar">
           <X className="h-4 w-4" />
         </button>

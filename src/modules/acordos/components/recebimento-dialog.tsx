@@ -13,16 +13,19 @@ import { formatDateBR, hojeISO } from "@/lib/dates";
 import { recebimentoSchema, type RecebimentoInput, type RecebimentoOutput } from "../schemas/acordo";
 import { distribuirRecebimento } from "../domain/parcelas";
 import { registrarRecebimento } from "../actions/acordos";
+import { previaRecebimento } from "@/modules/operacoes/domain/destinacao";
 import type { ParcelaPosicao } from "@/types/db";
 
 export function RecebimentoDialog({
   acordoId,
   parcelas,
   saldoEmAberto,
+  operacao,
 }: {
   acordoId: string;
-  parcelas: Pick<ParcelaPosicao, "id" | "numero" | "data_vencimento" | "saldo">[];
+  parcelas: Pick<ParcelaPosicao, "id" | "numero" | "data_vencimento" | "saldo" | "valor">[];
   saldoEmAberto: number | string;
+  operacao?: { emprestimoCodigo: string; percentualEmprestimo: number | string; percentualReserva: number | string } | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -52,6 +55,16 @@ export function RecebimentoDialog({
       parcelaId || null,
     );
   }, [abertas, valorTxt, parcelaId]);
+
+  const previa = useMemo(() => {
+    if (!operacao || !distribuicao) return null;
+    return previaRecebimento(
+      parcelas.map((p) => ({ id: p.id, valor: p.valor, saldo: p.saldo })),
+      distribuicao.map((i) => ({ parcelaId: i.parcelaId, valor: i.valor })),
+      operacao.percentualEmprestimo,
+      operacao.percentualReserva,
+    );
+  }, [operacao, distribuicao, parcelas]);
 
   const onSubmit = handleSubmit(() => {
     setErro(null);
@@ -113,6 +126,26 @@ export function RecebimentoDialog({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          {previa && operacao && (
+            <div className="rounded-2xl border border-brand-300 bg-brand-50 p-4">
+              <p className="mb-3 text-sm font-semibold text-slate-950">Para onde vai este dinheiro ({operacao.emprestimoCodigo})</p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-xl bg-juros-100 p-3 ring-1 ring-juros-300">
+                  <p className="text-xs text-slate-600">Paga juros</p>
+                  <p className="tabular mt-1 font-bold text-juros-700">{formatBRL(previa.juros)}</p>
+                </div>
+                <div className="rounded-xl bg-emerald-100 p-3 ring-1 ring-emerald-300">
+                  <p className="text-xs text-slate-600">Guarda na reserva</p>
+                  <p className="tabular mt-1 font-bold text-emerald-700">{formatBRL(previa.reserva)}</p>
+                </div>
+                <div className="rounded-xl bg-rem-100 p-3 ring-1 ring-rem-300">
+                  <p className="text-xs text-slate-600">Sobra</p>
+                  <p className="tabular mt-1 font-bold text-rem-700">{formatBRL(previa.livre)}</p>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">Se os juros do empréstimo já estiverem pagos, a parte dos juros vai para a sobra.</p>
             </div>
           )}
           <div className="grid gap-4 sm:grid-cols-2">

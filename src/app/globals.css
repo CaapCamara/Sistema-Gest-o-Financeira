@@ -1,37 +1,126 @@
 @import "tailwindcss";
 
+/*
+ * Identidade: preto (predominante), verde e branco.
+ *
+ * As telas usam a convenção clara do Tailwind (fundo "50", texto "700/900",
+ * cartão "white"). Aqui as escalas são REMAPEADAS para um tema escuro: o número
+ * baixo é a superfície escura e o alto é o texto claro. Assim cada classe
+ * continua com o mesmo papel (fundo suave, borda, texto forte) e o sistema
+ * inteiro segue a identidade sem duplicar estilos.
+ *
+ * Cores com significado fixo (o destino do dinheiro):
+ *   juros        = branco  (escala "juros")
+ *   reserva      = verde   (escalas "emerald"/"brand")
+ *   remanescente = cinza   (escala "rem")
+ */
 @theme {
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-bricolage), var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
 
-  /* Cobalto: marca e destino "juros" */
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #dce3ff;
-  --color-brand-200: #bfcbff;
-  --color-brand-300: #95a8ff;
-  --color-brand-400: #6b82fb;
-  --color-brand-500: #4d6bfe;
-  --color-brand-600: #3354f4;
-  --color-brand-700: #2540d6;
-  --color-brand-800: #1f35ab;
-  --color-brand-900: #1c2f82;
+  --color-papel: #070707;
+  --color-white: #121212;
+  --color-black: #000000;
 
-  /* Tinta: menu lateral e títulos */
-  --color-tinta-700: #22325c;
-  --color-tinta-800: #18264a;
-  --color-tinta-900: #101c3a;
-  --color-tinta-950: #0a1430;
+  /* Neutros (sem tom azulado) */
+  --color-slate-50: #171717;
+  --color-slate-100: #1f1f1f;
+  --color-slate-200: #2a2a2a;
+  --color-slate-300: #3a3a3a;
+  --color-slate-400: #5c5c5c;
+  --color-slate-500: #8f8f8f;
+  --color-slate-600: #ababab;
+  --color-slate-700: #d0d0d0;
+  --color-slate-800: #e8e8e8;
+  --color-slate-900: #f5f5f5;
+  --color-slate-950: #ffffff;
 
-  /* Papel: fundo das telas */
-  --color-papel: #f6f7fb;
+  /* Verde: ações, links e reserva */
+  --color-brand-50: #0b1f14;
+  --color-brand-100: #0f2b1b;
+  --color-brand-200: #17432a;
+  --color-brand-300: #1e5c38;
+  --color-brand-400: #23a157;
+  --color-brand-500: #27c463;
+  --color-brand-600: #2fdc6e;
+  --color-brand-700: #4ae487;
+  --color-brand-800: #86efac;
+  --color-brand-900: #bbf7d0;
+
+  --color-emerald-50: #0b1f14;
+  --color-emerald-100: #0f2b1b;
+  --color-emerald-200: #17432a;
+  --color-emerald-300: #1e5c38;
+  --color-emerald-400: #23a157;
+  --color-emerald-500: #27c463;
+  --color-emerald-600: #2fdc6e;
+  --color-emerald-700: #4ae487;
+  --color-emerald-800: #86efac;
+  --color-emerald-900: #bbf7d0;
+
+  /* Branco: juros */
+  --color-juros-50: #1a1a1a;
+  --color-juros-100: #222222;
+  --color-juros-200: #333333;
+  --color-juros-300: #4a4a4a;
+  --color-juros-400: #9a9a9a;
+  --color-juros-500: #cccccc;
+  --color-juros-600: #ededed;
+  --color-juros-700: #f7f7f7;
+  --color-juros-800: #ffffff;
+
+  /* Cinza: montante remanescente */
+  --color-rem-50: #161616;
+  --color-rem-100: #1e1e1e;
+  --color-rem-200: #2d2d2d;
+  --color-rem-300: #424242;
+  --color-rem-400: #575757;
+  --color-rem-500: #686868;
+  --color-rem-600: #777777;
+  --color-rem-700: #a3a3a3;
+  --color-rem-800: #c2c2c2;
+
+  /* Estados (atraso, atenção) */
+  --color-red-50: #250e0e;
+  --color-red-100: #331212;
+  --color-red-200: #561b1b;
+  --color-red-300: #7a2424;
+  --color-red-400: #dc2626;
+  --color-red-500: #ef4444;
+  --color-red-600: #ef4444;
+  --color-red-700: #f87171;
+  --color-red-800: #fca5a5;
+  --color-red-900: #fecaca;
+
+  --color-amber-50: #241a06;
+  --color-amber-100: #322408;
+  --color-amber-200: #523a0c;
+  --color-amber-300: #7a5410;
+  --color-amber-400: #f59e0b;
+  --color-amber-500: #f5a524;
+  --color-amber-600: #f5b041;
+  --color-amber-700: #fbbf24;
+  --color-amber-800: #fcd34d;
+  --color-amber-900: #fde68a;
+
+  /* Preto do menu e da faixa de destaque */
+  --color-tinta-700: #1a1a1a;
+  --color-tinta-800: #0d0d0d;
+  --color-tinta-900: #000000;
+  --color-tinta-950: #000000;
 }
 
 html {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
   @apply bg-papel text-slate-900 antialiased;
+}
+
+::selection {
+  background: #2fdc6e;
+  color: #000;
 }
 
 /* Números tabulares para colunas monetárias */

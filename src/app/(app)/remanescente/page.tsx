@@ -51,7 +51,7 @@ export default async function RemanescentePage() {
         <Stat
           label="Total remanescente"
           value={formatBRL(total)}
-          tone="violet"
+          tone="rem"
           icon={<Layers className="h-4 w-4" />}
           hint={`${comSaldo.length} operação(ões) com saldo`}
           className="sm:col-span-1"
@@ -95,7 +95,7 @@ export default async function RemanescentePage() {
                 <Td>{o.emprestimo_codigo}</Td>
                 <Td align="right">{formatBRL(porCota(o.id, "emprestimo"))}</Td>
                 <Td align="right">{formatBRL(porCota(o.id, "livre"))}</Td>
-                <Td align="right" className="font-semibold text-violet-700">{formatBRL(o.total_remanescente)}</Td>
+                <Td align="right" className="font-semibold text-rem-700">{formatBRL(o.total_remanescente)}</Td>
                 <Td align="right" className="text-slate-500">
                   {total.isZero() ? "—" : `${money(o.total_remanescente).dividedBy(total).times(100).toFixed(1).replace(".", ",")}%`}
                 </Td>
@@ -104,9 +104,9 @@ export default async function RemanescentePage() {
           </tbody>
           {operacoes.length > 0 && (
             <tfoot>
-              <tr className="bg-violet-50/60 font-semibold">
+              <tr className="bg-rem-50/60 font-semibold">
                 <Td colSpan={5}>Total</Td>
-                <Td align="right" className="text-violet-800">{formatBRL(total)}</Td>
+                <Td align="right" className="text-rem-800">{formatBRL(total)}</Td>
                 <Td />
               </tr>
             </tfoot>
@@ -140,7 +140,7 @@ export default async function RemanescentePage() {
                 </Td>
                 <Td>{l.parcela_numero}</Td>
                 <Td className="text-xs text-slate-600">{COTA_LABEL[l.cota]}</Td>
-                <Td align="right" className="font-medium text-violet-700">{formatBRL(l.valor)}</Td>
+                <Td align="right" className="font-medium text-rem-700">{formatBRL(l.valor)}</Td>
               </tr>
             ))}
           </tbody>

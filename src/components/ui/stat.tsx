@@ -7,7 +7,7 @@ const tones = {
   negative: { value: "text-red-700", chip: "bg-red-50 text-red-600", bar: "bg-red-500" },
   warning: { value: "text-amber-700", chip: "bg-amber-50 text-amber-600", bar: "bg-amber-500" },
   info: { value: "text-brand-700", chip: "bg-brand-50 text-brand-600", bar: "bg-brand-600" },
-  violet: { value: "text-violet-700", chip: "bg-violet-50 text-violet-600", bar: "bg-violet-600" },
+  rem: { value: "text-rem-700", chip: "bg-rem-50 text-rem-600", bar: "bg-rem-600" },
 };
 
 export function Stat({
@@ -29,7 +29,7 @@ export function Stat({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(16,28,58,0.04)]",
+        "relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4",
         className,
       )}
     >

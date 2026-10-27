@@ -123,9 +123,9 @@ export function OperacaoDialog({
                   <dt className="text-xs text-slate-500">Reserva</dt>
                   <dd className="tabular font-semibold text-emerald-700">{formatBRL(previa.reserva)}</dd>
                 </div>
-                <div className="rounded-lg bg-white p-2 ring-1 ring-violet-100">
+                <div className="rounded-lg bg-white p-2 ring-1 ring-rem-100">
                   <dt className="text-xs text-slate-500">Remanescente</dt>
-                  <dd className="tabular font-semibold text-violet-700">{formatBRL(previa.livre)}</dd>
+                  <dd className="tabular font-semibold text-rem-700">{formatBRL(previa.livre)}</dd>
                 </div>
               </dl>
             </div>

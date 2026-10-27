@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coberturaPrevista, cotasDaParcela } from "./destinacao";
+import { coberturaPrevista, cotasDaParcela, previaRecebimento } from "./destinacao";
 
 describe("cotasDaParcela", () => {
   it("divide 50/50 a parcela de R$ 2.000", () => {
@@ -33,5 +33,19 @@ describe("coberturaPrevista", () => {
 
   it("indica falta quando as contribuições não cobrem os juros", () => {
     expect(coberturaPrevista(1000, [600]).diferenca.toFixed(2)).toBe("-400.00");
+  });
+});
+
+describe("previaRecebimento", () => {
+  const parcelas = [{ id: "p2", valor: 2000, saldo: 2000 }];
+  it("parcial: juros primeiro, reserva com o que sobra", () => {
+    const r = previaRecebimento(parcelas, [{ parcelaId: "p2", valor: 1500 }], 50, 50);
+    expect(r.juros.toFixed(2)).toBe("1000.00");
+    expect(r.reserva.toFixed(2)).toBe("500.00");
+  });
+  it("complemento da parcela vai só para a reserva", () => {
+    const r = previaRecebimento([{ id: "p2", valor: 2000, saldo: 500 }], [{ parcelaId: "p2", valor: 500 }], 50, 50);
+    expect(r.juros.toFixed(2)).toBe("0.00");
+    expect(r.reserva.toFixed(2)).toBe("500.00");
   });
 });

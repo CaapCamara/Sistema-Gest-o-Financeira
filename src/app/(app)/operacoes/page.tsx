@@ -41,7 +41,7 @@ export default async function OperacoesPage() {
         <Stat label="Destinado a juros" value={formatBRL(totalJuros)} icon={<CircleDollarSign className="h-4 w-4" />} tone="info" />
         <Stat label="Destinado à reserva" value={formatBRL(totalReserva)} icon={<PiggyBank className="h-4 w-4" />} tone="positive" />
         <Link href="/remanescente" className="rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
-          <Stat label="Montante remanescente" value={formatBRL(totalRemanescente)} icon={<Layers className="h-4 w-4" />} tone="violet" className="h-full" hint="ver por operação" />
+          <Stat label="Montante remanescente" value={formatBRL(totalRemanescente)} icon={<Layers className="h-4 w-4" />} tone="rem" className="h-full" hint="ver por operação" />
         </Link>
       </div>
 
@@ -91,15 +91,15 @@ export default async function OperacoesPage() {
                   {formatDecimalBR(o.percentual_emprestimo)}% juros · {formatDecimalBR(o.percentual_reserva)}% reserva
                   {Number(o.percentual_livre) > 0 && <> · {formatDecimalBR(o.percentual_livre)}% livre</>}
                 </Td>
-                <Td align="right" className="text-brand-700">{formatBRL(o.total_juros)}</Td>
+                <Td align="right" className="text-juros-700">{formatBRL(o.total_juros)}</Td>
                 <Td align="right" className="text-emerald-700">{formatBRL(o.total_reserva)}</Td>
-                <Td align="right" className="font-medium text-violet-700">{formatBRL(o.total_remanescente)}</Td>
+                <Td align="right" className="font-medium text-rem-700">{formatBRL(o.total_remanescente)}</Td>
                 <Td className="w-40">
                   <SplitBar
                     partes={[
-                      { valor: Number(o.total_juros), tone: "brand" },
+                      { valor: Number(o.total_juros), tone: "juros" },
                       { valor: Number(o.total_reserva), tone: "green" },
-                      { valor: Number(o.total_remanescente), tone: "violet" },
+                      { valor: Number(o.total_remanescente), tone: "rem" },
                     ]}
                   />
                 </Td>

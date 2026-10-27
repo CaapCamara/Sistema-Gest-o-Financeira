@@ -1,21 +1,48 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, CalendarClock, FileCheck2, Handshake, Landmark, Layers, PiggyBank, Wallet, Receipt, HandCoins } from "lucide-react";
-import { endOfMonth, startOfMonth, addDays } from "date-fns";
+import {
+  AlertTriangle,
+  ArrowDownLeft,
+  ArrowUpRight,
+  CircleCheck,
+  FileCheck2,
+  FileWarning,
+  Handshake,
+  Landmark,
+  Plus,
+} from "lucide-react";
+import { addDays, endOfMonth, startOfMonth } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { garantirCompetencias } from "@/modules/emprestimos/queries/competencias";
 import { formatBRL, money, sum } from "@/lib/money";
 import { formatDateBR, hojeISO, parseDateOnly, toISODate } from "@/lib/dates";
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ProgressBar, SplitBar } from "@/components/ui/progress";
-import { Stat } from "@/components/ui/stat";
-import { Badge } from "@/components/ui/badge";
-import { Table, Th, Td, EmptyRow } from "@/components/ui/table";
-import { SITUACAO_PARCELA_LABEL } from "@/modules/acordos/labels";
+import { buttonClasses } from "@/components/ui/button";
+import { mesPorExtenso, situacaoJuros } from "@/modules/emprestimos/components/resumo-emprestimo";
 import type { AcordoPosicao, CoberturaEmprestimo, Competencia, EmprestimoPosicao, ParcelaPosicao } from "@/types/db";
 
 export const metadata: Metadata = { title: "Painel" };
+
+const SELO = {
+  ok: "bg-emerald-100 text-emerald-700 ring-emerald-300",
+  atencao: "bg-amber-100 text-amber-700 ring-amber-300",
+  atraso: "bg-red-100 text-red-700 ring-red-300",
+  neutro: "bg-slate-100 text-slate-700 ring-slate-300",
+} as const;
+
+function Secao({ titulo, children, acao }: { titulo: string; children: React.ReactNode; acao?: React.ReactNode }) {
+  return (
+    <section className="mt-10">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="font-display text-xl font-bold text-slate-950">{titulo}</h2>
+        {acao}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -28,36 +55,17 @@ export default async function DashboardPage() {
 
   const [
     { data: pos },
-    { data: compsMes },
     { data: proximos },
-    { data: pagsMes },
     { data: acordosData },
-    { data: parcelasMes },
     { data: parcelasProximas },
-    { data: recebimentosMes },
     { count: protocolosPendentes },
     { count: processosSemNupe },
     { data: coberturas },
     { data: destinacoesMes },
-    { data: operacoesData },
   ] = await Promise.all([
-    supabase.from("vw_emprestimo_posicao").select("*"),
-    supabase.from("vw_competencias").select("emprestimo_id, juros_devido, juros_em_aberto").gte("data_vencimento", inicioMes).lte("data_vencimento", fimMes),
-    supabase
-      .from("vw_competencias")
-      .select("*")
-      .gt("juros_em_aberto", 0)
-      .lte("data_vencimento", em30)
-      .order("data_vencimento")
-      .limit(50),
-    supabase.from("pagamentos").select("emprestimo_id, valor_total").is("estornado_em", null).gte("data_pagamento", inicioMes).lte("data_pagamento", fimMes),
+    supabase.from("vw_emprestimo_posicao").select("*").order("codigo"),
+    supabase.from("vw_competencias").select("*").gt("juros_em_aberto", 0).lte("data_vencimento", em30).order("data_vencimento").limit(50),
     supabase.from("vw_acordo_posicao").select("*").eq("status", "ativo"),
-    supabase
-      .from("vw_acordo_parcelas")
-      .select("valor, valor_recebido")
-      .eq("acordo_status", "ativo")
-      .gte("data_vencimento", inicioMes)
-      .lte("data_vencimento", fimMes),
     supabase
       .from("vw_acordo_parcelas")
       .select("*")
@@ -66,7 +74,6 @@ export default async function DashboardPage() {
       .lte("data_vencimento", em30)
       .order("data_vencimento")
       .limit(50),
-    supabase.from("acordo_recebimentos").select("valor").is("estornado_em", null).gte("data_recebimento", inicioMes).lte("data_recebimento", fimMes),
     supabase.from("vw_protocolos").select("id", { count: "exact", head: true }).eq("pendente", true),
     supabase.from("vw_processo_resumo").select("id", { count: "exact", head: true }).eq("status", "ativo").eq("tem_nupe", false),
     supabase.from("vw_emprestimo_cobertura").select("*"),
@@ -76,274 +83,251 @@ export default async function DashboardPage() {
       .is("estornado_em", null)
       .gte("data_destinacao", inicioMes)
       .lte("data_destinacao", fimMes),
-    supabase.from("vw_operacoes").select("id, ativa, total_remanescente"),
   ]);
 
-  const todos = (pos ?? []) as EmprestimoPosicao[];
-  const ativos = todos.filter((e) => e.status === "ativo");
+  const ativos = ((pos ?? []) as EmprestimoPosicao[]).filter((e) => e.status === "ativo");
   const idsAtivos = new Set(ativos.map((e) => e.id));
-  const porId = new Map(todos.map((e) => [e.id, e]));
+  const porId = new Map(ativos.map((e) => [e.id, e]));
+  const coberturaPorEmprestimo = new Map(((coberturas ?? []) as CoberturaEmprestimo[]).map((c) => [c.emprestimo_id, c]));
 
-  const capitalADevolver = sum(ativos.map((e) => e.principal_devido));
-  const jurosMes = sum((compsMes ?? []).filter((c) => idsAtivos.has(c.emprestimo_id)).map((c) => c.juros_devido));
-  const pagosMes = sum((pagsMes ?? []).map((p) => p.valor_total));
-  const pagosTotal = sum(todos.map((e) => e.total_pago));
-  const reservas = sum(todos.map((e) => e.reserva_saldo));
-  const jurosAtrasados = sum(ativos.map((e) => e.juros_vencidos_nao_pagos));
-  const emAtraso = ativos.filter((e) => e.em_atraso);
+  // Entrou no mês, e para onde foi
+  const destMes = (destinacoesMes ?? []) as { destino: "emprestimo" | "reserva" | "remanescente"; valor: string | number }[];
+  const fluxoJuros = sum(destMes.filter((x) => x.destino === "emprestimo").map((x) => x.valor));
+  const fluxoReserva = sum(destMes.filter((x) => x.destino === "reserva").map((x) => x.valor));
+  const fluxoSobra = sum(destMes.filter((x) => x.destino === "remanescente").map((x) => x.valor));
+  const fluxoTotal = fluxoJuros.plus(fluxoReserva).plus(fluxoSobra);
 
-  const listaProximos = ((proximos ?? []) as Competencia[]).filter((c) => idsAtivos.has(c.emprestimo_id));
-  const principaisAVencer = ativos.filter(
-    (e) => Number(e.principal_devido) > 0 && e.data_vencimento_principal <= em30,
-  );
-
+  // O que precisa de atenção (só aparece o que existe)
   const acordosAtivos = (acordosData ?? []) as AcordoPosicao[];
   const acordoPorId = new Map(acordosAtivos.map((a) => [a.id, a]));
-  const previstasMes = parcelasMes ?? [];
-  const valorPrevistoMes = sum(previstasMes.map((p) => p.valor));
-  const recebidoDasPrevistas = sum(previstasMes.map((p) => p.valor_recebido));
-  const recebidoMes = sum((recebimentosMes ?? []).map((r) => r.valor));
+  const emprestimosAtrasados = ativos.filter((e) => e.em_atraso);
   const parcelasAtrasadas = acordosAtivos.reduce((n, a) => n + a.parcelas_atrasadas, 0);
   const valorAtrasado = sum(acordosAtivos.map((a) => a.valor_atrasado));
-  const saldoAcordos = sum(acordosAtivos.map((a) => a.saldo_em_aberto));
-  const listaParcelas = (parcelasProximas ?? []) as ParcelaPosicao[];
+  const alertas = [
+    emprestimosAtrasados.length > 0 && {
+      href: "/emprestimos",
+      icone: AlertTriangle,
+      tom: "atraso" as const,
+      texto: `${emprestimosAtrasados.length} empréstimo(s) com juros atrasados`,
+    },
+    parcelasAtrasadas > 0 && {
+      href: "/acordos",
+      icone: Handshake,
+      tom: "atraso" as const,
+      texto: `${parcelasAtrasadas} parcela(s) de acordo atrasada(s) · ${formatBRL(valorAtrasado)}`,
+    },
+    (protocolosPendentes ?? 0) > 0 && {
+      href: "/protocolos?filtro=pendentes",
+      icone: FileCheck2,
+      tom: "atencao" as const,
+      texto: `${protocolosPendentes} protocolo(s) pendente(s)`,
+    },
+    (processosSemNupe ?? 0) > 0 && {
+      href: "/processos?filtro=sem_nupe",
+      icone: FileWarning,
+      tom: "atencao" as const,
+      texto: `${processosSemNupe} processo(s) sem NUPE`,
+    },
+  ].filter(Boolean) as { href: string; icone: typeof AlertTriangle; tom: "atraso" | "atencao"; texto: string }[];
 
-  // Fluxo do mês: como os recebimentos dos acordos foram destinados
-  const destMes = (destinacoesMes ?? []) as { destino: "emprestimo" | "reserva" | "remanescente"; valor: string | number }[];
-  const fluxoJuros = sum(destMes.filter((d) => d.destino === "emprestimo").map((d) => d.valor));
-  const fluxoReserva = sum(destMes.filter((d) => d.destino === "reserva").map((d) => d.valor));
-  const fluxoRemanescente = sum(destMes.filter((d) => d.destino === "remanescente").map((d) => d.valor));
-  const fluxoTotal = fluxoJuros.plus(fluxoReserva).plus(fluxoRemanescente);
-  const operacoes = (operacoesData ?? []) as { id: string; ativa: boolean; total_remanescente: string | number }[];
-  const remanescenteTotal = sum(operacoes.map((o) => o.total_remanescente));
-  const listaCobertura = ((coberturas ?? []) as CoberturaEmprestimo[])
-    .filter((c) => idsAtivos.has(c.emprestimo_id))
-    .sort((x, y) => x.data_vencimento.localeCompare(y.data_vencimento));
+  // Próximos 30 dias
+  const aReceber = (parcelasProximas ?? []) as ParcelaPosicao[];
+  const aPagar = ((proximos ?? []) as Competencia[]).filter((c) => idsAtivos.has(c.emprestimo_id));
 
   return (
     <>
-      <PageHeader title="Painel" description={`Posição em ${formatDateBR(hoje)}`} />
+      <PageHeader title="Painel" description={`Hoje, ${formatDateBR(hoje)}`} />
 
-      <section className="mb-8 overflow-hidden rounded-2xl bg-tinta-900 text-white shadow-[0_12px_40px_-20px_rgba(16,28,58,0.6)]">
-        <div className="grid gap-6 p-6 lg:grid-cols-[1.2fr_1fr] lg:p-8">
+      {/* Quanto entrou este mês e para onde foi */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 lg:p-8">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm text-slate-400">Recebido dos acordos com operação neste mês</p>
-            <p className="font-display tabular mt-1 text-4xl font-bold tracking-tight sm:text-5xl">{formatBRL(fluxoTotal)}</p>
-            <SplitBar
-              className="mt-5 h-3 bg-white/10"
-              partes={[
-                { valor: fluxoJuros.toNumber(), tone: "brand", rotulo: "Juros" },
-                { valor: fluxoReserva.toNumber(), tone: "green", rotulo: "Reserva" },
-                { valor: fluxoRemanescente.toNumber(), tone: "violet", rotulo: "Remanescente" },
-              ]}
-            />
-            <p className="mt-3 text-sm text-slate-400">
-              {fluxoTotal.isZero()
-                ? "Nenhum recebimento destinado neste mês ainda."
-                : "Cada recebimento é dividido na hora em que é registrado, conforme a operação do acordo."}
-            </p>
+            <p className="text-sm text-slate-500">Entrou dos acordos em {mesPorExtenso(hoje)}</p>
+            <p className="font-display tabular mt-1 text-5xl font-bold tracking-tight text-slate-950 sm:text-6xl">{formatBRL(fluxoTotal)}</p>
           </div>
-          <div className="grid grid-cols-3 gap-3 self-end lg:grid-cols-1">
+          <div className="flex flex-wrap gap-2">
             {[
-              { rotulo: "Pagou juros", valor: fluxoJuros, cor: "bg-brand-400", href: "/emprestimos" },
-              { rotulo: "Foi para a reserva", valor: fluxoReserva, cor: "bg-emerald-400", href: "/reservas" },
-              { rotulo: "Virou remanescente", valor: fluxoRemanescente, cor: "bg-violet-400", href: "/remanescente" },
+              { rotulo: "Pagou juros", valor: fluxoJuros, cor: "bg-juros-700" },
+              { rotulo: "Guardou na reserva", valor: fluxoReserva, cor: "bg-emerald-600" },
+              { rotulo: "Sobrou", valor: fluxoSobra, cor: "bg-rem-600" },
             ].map((x) => (
-              <Link
-                key={x.rotulo}
-                href={x.href}
-                className="flex flex-col justify-between gap-1 rounded-xl bg-white/[0.06] p-3 ring-1 ring-white/10 hover:bg-white/[0.1] lg:flex-row lg:items-center"
-              >
-                <span className="flex items-center gap-2 text-xs text-slate-300 sm:text-sm">
-                  <span className={`h-2.5 w-2.5 rounded-full ${x.cor}`} aria-hidden />
-                  {x.rotulo}
-                </span>
-                <span className="tabular text-base font-bold sm:text-lg">{formatBRL(x.valor)}</span>
-              </Link>
+              <span key={x.rotulo} className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700 ring-1 ring-slate-200">
+                <span className={cn("h-2.5 w-2.5 rounded-full", x.cor)} aria-hidden />
+                {x.rotulo}
+                <span className="tabular font-bold text-slate-950">{formatBRL(x.valor)}</span>
+              </span>
             ))}
           </div>
         </div>
+        <SplitBar
+          className="mt-6 h-4"
+          partes={[
+            { valor: fluxoJuros.toNumber(), tone: "juros", rotulo: "Pagou juros" },
+            { valor: fluxoReserva.toNumber(), tone: "green", rotulo: "Guardou na reserva" },
+            { valor: fluxoSobra.toNumber(), tone: "rem", rotulo: "Sobrou" },
+          ]}
+        />
       </section>
 
-      <Card className="mb-8">
-        <CardHeader
-          title="Cobertura dos juros por empréstimo"
-          description="A competência de juros em aberto de cada empréstimo ativo e quanto os processos já pagaram dela."
-          actions={
-            <Link href="/remanescente" className="inline-flex items-center gap-2 rounded-lg bg-violet-50 px-3 py-1.5 text-sm font-semibold text-violet-700 ring-1 ring-inset ring-violet-200 hover:bg-violet-100">
-              <Layers className="h-4 w-4" /> Remanescente {formatBRL(remanescenteTotal)}
-            </Link>
-          }
-        />
-        {listaCobertura.length === 0 ? (
-          <CardBody className="py-10 text-center text-sm text-slate-500">Nenhum empréstimo ativo com juros em aberto.</CardBody>
+      {/* Cada empréstimo em um cartão */}
+      <Secao
+        titulo="Empréstimos"
+        acao={
+          <Link href="/emprestimos/novo" className={buttonClasses("secondary", "sm")}>
+            <Plus className="h-4 w-4" /> Novo
+          </Link>
+        }
+      >
+        {ativos.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 px-6 py-12 text-center">
+            <Landmark className="mx-auto h-8 w-8 text-slate-400" />
+            <p className="mt-3 text-sm text-slate-600">Nenhum empréstimo ativo.</p>
+          </div>
         ) : (
-          <ul className="divide-y divide-slate-100">
-            {listaCobertura.map((c) => {
-              const e = porId.get(c.emprestimo_id);
-              const devido = money(c.juros_devido);
-              const pct = devido.isZero() ? 100 : money(c.juros_pago).dividedBy(devido).times(100).toNumber();
-              const coberta = money(c.juros_em_aberto).isZero();
+          <div className="grid gap-4 lg:grid-cols-2">
+            {ativos.map((e) => {
+              const c = coberturaPorEmprestimo.get(e.id) ?? null;
+              const juros = situacaoJuros(c);
+              const pctJuros = c && !money(c.juros_devido).isZero() ? money(c.juros_pago).dividedBy(c.juros_devido).times(100).toNumber() : 100;
+              const pctReserva = money(e.principal_devido).isZero()
+                ? 100
+                : Math.min(100, money(e.reserva_saldo).dividedBy(e.valor_principal).times(100).toNumber());
               return (
-                <li key={c.emprestimo_id}>
-                  <Link href={`/emprestimos/${c.emprestimo_id}`} className="grid items-center gap-x-6 gap-y-2 px-5 py-3.5 hover:bg-slate-50/70 sm:grid-cols-[minmax(0,14rem)_1fr_auto]">
+                <Link
+                  key={e.id}
+                  href={`/emprestimos/${e.id}`}
+                  className="group rounded-2xl border border-slate-200 bg-white p-5 transition-colors hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+                >
+                  <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate font-semibold text-tinta-900">{e?.codigo}</p>
-                      <p className="truncate text-xs text-slate-500">
-                        {e?.credor_nome} · competência {c.numero}, vence {formatDateBR(c.data_vencimento)}
-                      </p>
+                      <p className="font-display text-lg font-bold text-slate-950 group-hover:text-brand-700">{e.codigo}</p>
+                      <p className="truncate text-sm text-slate-500">{e.credor_nome}</p>
                     </div>
-                    <ProgressBar value={pct} tone={coberta ? "green" : c.vencida ? "red" : "brand"} />
-                    <p className="tabular text-sm sm:text-right">
-                      <span className="font-semibold text-tinta-900">{formatBRL(c.juros_pago)}</span>
-                      <span className="text-slate-400"> de {formatBRL(c.juros_devido)}</span>
-                      <span className={`block text-xs ${coberta ? "text-emerald-700" : c.vencida ? "text-red-700" : "text-amber-700"}`}>
-                        {coberta ? "Coberta" : `Faltam ${formatBRL(c.juros_em_aberto)}`}
-                      </span>
-                    </p>
+                    <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", SELO[juros.situacao])}>
+                      {juros.situacao === "ok" && <CircleCheck className="mr-1 inline h-3.5 w-3.5" />}
+                      Juros {juros.texto.toLowerCase()}
+                    </span>
+                  </div>
+
+                  <div className="mt-5 space-y-4">
+                    <div>
+                      <div className="mb-1.5 flex items-baseline justify-between text-sm">
+                        <span className="text-slate-600">{c ? `Juros de ${mesPorExtenso(c.data_vencimento)}` : "Juros"}</span>
+                        <span className="tabular text-slate-500">
+                          <span className="font-bold text-slate-950">{formatBRL(c?.juros_pago ?? 0)}</span> de {formatBRL(c?.juros_devido ?? 0)}
+                        </span>
+                      </div>
+                      <ProgressBar value={pctJuros} tone={juros.situacao === "atraso" ? "red" : juros.situacao === "ok" ? "brand" : "juros"} />
+                    </div>
+                    <div>
+                      <div className="mb-1.5 flex items-baseline justify-between text-sm">
+                        <span className="text-slate-600">Reserva para quitar</span>
+                        <span className="tabular text-slate-500">
+                          <span className="font-bold text-emerald-700">{formatBRL(e.reserva_saldo)}</span> de {formatBRL(e.valor_principal)}
+                        </span>
+                      </div>
+                      <ProgressBar value={pctReserva} tone="green" />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </Secao>
+
+      {/* Só o que precisa de atenção */}
+      <Secao titulo="Precisa de atenção">
+        {alertas.length === 0 ? (
+          <div className="flex items-center gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 px-5 py-4 text-emerald-700">
+            <CircleCheck className="h-6 w-6" />
+            <span className="font-semibold">Tudo em dia</span>
+          </div>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {alertas.map((a) => {
+              const Icone = a.icone;
+              return (
+                <li key={a.texto}>
+                  <Link
+                    href={a.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-2xl px-4 py-3.5 text-sm font-semibold ring-1 ring-inset hover:brightness-125",
+                      SELO[a.tom],
+                    )}
+                  >
+                    <Icone className="h-5 w-5 shrink-0" />
+                    {a.texto}
                   </Link>
                 </li>
               );
             })}
           </ul>
         )}
-      </Card>
+      </Secao>
 
-      <h2 className="font-display mb-3 text-lg font-bold text-tinta-900">Empréstimos</h2>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Stat label="Empréstimos ativos" value={ativos.length} icon={<Landmark className="h-4 w-4" />} hint={emAtraso.length ? `${emAtraso.length} em atraso` : "nenhum em atraso"} tone={emAtraso.length ? "warning" : "default"} />
-        <Stat label="Capital a devolver" value={formatBRL(capitalADevolver)} icon={<Wallet className="h-4 w-4" />} hint="principal ainda devido" />
-        <Stat label="Juros previstos no mês" value={formatBRL(jurosMes)} icon={<CalendarClock className="h-4 w-4" />} />
-        <Stat label="Pagamentos no mês" value={formatBRL(pagosMes)} tone="positive" icon={<Receipt className="h-4 w-4" />} hint={`total histórico ${formatBRL(pagosTotal)}`} />
-        <Stat label="Reservas constituídas" value={formatBRL(reservas)} tone="info" icon={<PiggyBank className="h-4 w-4" />} hint="não abatem a dívida" />
-        <Stat label="Juros vencidos não pagos" value={formatBRL(jurosAtrasados)} tone={jurosAtrasados.greaterThan(0) ? "negative" : "default"} icon={<AlertTriangle className="h-4 w-4" />} />
-      </div>
+      {/* Próximos 30 dias */}
+      <Secao titulo="Próximos 30 dias">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white">
+            <p className="flex items-center gap-2 border-b border-slate-100 px-5 py-3 text-sm font-semibold text-slate-700">
+              <ArrowDownLeft className="h-4 w-4 text-brand-600" /> A receber dos acordos
+            </p>
+            {aReceber.length === 0 ? (
+              <p className="px-5 py-8 text-center text-sm text-slate-500">Nada a receber.</p>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {aReceber.slice(0, 8).map((p) => {
+                  const a = acordoPorId.get(p.acordo_id);
+                  return (
+                    <li key={p.id}>
+                      <Link href={`/acordos/${p.acordo_id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-slate-900">{a?.numero_processo ?? a?.processo_codigo}</span>
+                          <span className={cn("text-xs", p.atrasada ? "font-semibold text-red-700" : "text-slate-500")}>
+                            {p.atrasada ? "Atrasada · " : ""}parcela {p.numero} · {formatDateBR(p.data_vencimento)}
+                          </span>
+                        </span>
+                        <span className="tabular shrink-0 font-bold text-brand-700">{formatBRL(p.saldo)}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
 
-      <div className="mt-6">
-        <Card>
-          <CardHeader title="Próximos vencimentos e atrasos" description="Juros em aberto vencidos ou com vencimento nos próximos 30 dias." />
-          <Table>
-            <thead>
-              <tr>
-                <Th>Vencimento</Th>
-                <Th>Empréstimo</Th>
-                <Th>Credor</Th>
-                <Th>Item</Th>
-                <Th align="right">Em aberto</Th>
-                <Th />
-              </tr>
-            </thead>
-            <tbody>
-              {listaProximos.length === 0 && principaisAVencer.length === 0 && (
-                <EmptyRow colSpan={6}>Nada vencido ou a vencer nos próximos 30 dias.</EmptyRow>
-              )}
-              {principaisAVencer.map((e) => (
-                <tr key={`p-${e.id}`} className="hover:bg-slate-50">
-                  <Td>{formatDateBR(e.data_vencimento_principal)}</Td>
-                  <Td>
-                    <Link href={`/emprestimos/${e.id}`} className="text-brand-700 hover:underline">{e.codigo}</Link>
-                  </Td>
-                  <Td>{e.credor_nome}</Td>
-                  <Td>Principal</Td>
-                  <Td align="right">{formatBRL(e.principal_devido)}</Td>
-                  <Td>{e.data_vencimento_principal < hoje ? <Badge tone="red">Vencido</Badge> : <Badge tone="amber">A vencer</Badge>}</Td>
-                </tr>
-              ))}
-              {listaProximos.map((c) => {
-                const e = porId.get(c.emprestimo_id);
-                return (
-                  <tr key={c.id} className="hover:bg-slate-50">
-                    <Td>{formatDateBR(c.data_vencimento)}</Td>
-                    <Td>
-                      <Link href={`/emprestimos/${c.emprestimo_id}`} className="text-brand-700 hover:underline">{e?.codigo}</Link>
-                    </Td>
-                    <Td>{e?.credor_nome}</Td>
-                    <Td>Juros comp. {c.numero}</Td>
-                    <Td align="right">{formatBRL(c.juros_em_aberto)}</Td>
-                    <Td>{c.vencida ? <Badge tone="red">Vencido</Badge> : <Badge tone="gray">A vencer</Badge>}</Td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        </Card>
-
-      </div>
-
-      <h2 className="font-display mb-3 mt-10 text-lg font-bold text-tinta-900">Acordos e processos</h2>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Stat label="Acordos ativos" value={acordosAtivos.length} icon={<Handshake className="h-4 w-4" />} hint={`em aberto ${formatBRL(saldoAcordos)}`} />
-        <Stat
-          label="Parcelas previstas no mês"
-          value={formatBRL(valorPrevistoMes)}
-          icon={<CalendarClock className="h-4 w-4" />}
-          hint={`${previstasMes.length} parcela(s) · recebido ${formatBRL(recebidoDasPrevistas)}`}
-        />
-        <Stat label="Recebido no mês" value={formatBRL(recebidoMes)} tone="positive" icon={<HandCoins className="h-4 w-4" />} hint="todos os recebimentos do mês" />
-        <Stat
-          label="Parcelas atrasadas"
-          value={parcelasAtrasadas}
-          tone={parcelasAtrasadas > 0 ? "negative" : "default"}
-          icon={<AlertTriangle className="h-4 w-4" />}
-          hint={`${formatBRL(valorAtrasado)} após a carência`}
-        />
-        <Link href="/protocolos?filtro=pendentes" className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
-          <Stat
-            label="Protocolos pendentes"
-            value={protocolosPendentes ?? 0}
-            tone={(protocolosPendentes ?? 0) > 0 ? "warning" : "default"}
-            icon={<FileCheck2 className="h-4 w-4" />}
-            hint="status marcados como pendentes"
-            className="h-full hover:border-brand-200"
-          />
-        </Link>
-        <Link href="/processos?filtro=sem_nupe" className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
-          <Stat
-            label="Processos sem NUPE"
-            value={processosSemNupe ?? 0}
-            tone={(processosSemNupe ?? 0) > 0 ? "warning" : "default"}
-            icon={<FileCheck2 className="h-4 w-4" />}
-            hint="processos ativos"
-            className="h-full hover:border-brand-200"
-          />
-        </Link>
-      </div>
-
-      <Card className="mt-6">
-        <CardHeader title="Parcelas de acordos: atrasos e próximos vencimentos" description="Parcelas em aberto vencidas ou com vencimento nos próximos 30 dias." />
-        <Table>
-          <thead>
-            <tr>
-              <Th>Vencimento</Th>
-              <Th>Acordo</Th>
-              <Th>Processo</Th>
-              <Th>Parcela</Th>
-              <Th align="right">Em aberto</Th>
-              <Th />
-            </tr>
-          </thead>
-          <tbody>
-            {listaParcelas.length === 0 && <EmptyRow colSpan={6}>Nenhuma parcela vencida ou a vencer nos próximos 30 dias.</EmptyRow>}
-            {listaParcelas.map((p) => {
-              const a = acordoPorId.get(p.acordo_id);
-              return (
-                <tr key={p.id} className="hover:bg-slate-50">
-                  <Td>{formatDateBR(p.data_vencimento)}</Td>
-                  <Td>
-                    <Link href={`/acordos/${p.acordo_id}`} className="text-brand-700 hover:underline">{a?.codigo}</Link>
-                  </Td>
-                  <Td>{a?.numero_processo ?? a?.processo_codigo}</Td>
-                  <Td>{p.numero}</Td>
-                  <Td align="right">{formatBRL(p.saldo)}</Td>
-                  <Td>
-                    <Badge tone={SITUACAO_PARCELA_LABEL[p.situacao].tone}>{SITUACAO_PARCELA_LABEL[p.situacao].label}</Badge>
-                  </Td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Table>
-      </Card>
+          <div className="rounded-2xl border border-slate-200 bg-white">
+            <p className="flex items-center gap-2 border-b border-slate-100 px-5 py-3 text-sm font-semibold text-slate-700">
+              <ArrowUpRight className="h-4 w-4 text-slate-500" /> A pagar aos credores
+            </p>
+            {aPagar.length === 0 ? (
+              <p className="px-5 py-8 text-center text-sm text-slate-500">Nada a pagar.</p>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {aPagar.slice(0, 8).map((c) => {
+                  const e = porId.get(c.emprestimo_id);
+                  return (
+                    <li key={c.id}>
+                      <Link href={`/emprestimos/${c.emprestimo_id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-slate-900">
+                            {e?.codigo} · juros de {mesPorExtenso(c.data_vencimento)}
+                          </span>
+                          <span className={cn("text-xs", c.vencida ? "font-semibold text-red-700" : "text-slate-500")}>
+                            {c.vencida ? "Atrasado · " : ""}vence {formatDateBR(c.data_vencimento)}
+                          </span>
+                        </span>
+                        <span className="tabular shrink-0 font-bold text-slate-950">{formatBRL(c.juros_em_aberto)}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      </Secao>
     </>
   );
 }

@@ -152,8 +152,17 @@ export default async function AcordoPage({
               )}
               <RecebimentoDialog
                 acordoId={id}
-                parcelas={parcelas.map((p) => ({ id: p.id, numero: p.numero, data_vencimento: p.data_vencimento, saldo: p.saldo }))}
+                parcelas={parcelas.map((p) => ({ id: p.id, numero: p.numero, data_vencimento: p.data_vencimento, saldo: p.saldo, valor: p.valor }))}
                 saldoEmAberto={a.saldo_em_aberto}
+                operacao={
+                  operacaoAtiva
+                    ? {
+                        emprestimoCodigo: operacaoAtiva.emprestimo_codigo,
+                        percentualEmprestimo: operacaoAtiva.percentual_emprestimo,
+                        percentualReserva: operacaoAtiva.percentual_reserva,
+                      }
+                    : null
+                }
               />
             </>
           )
@@ -181,7 +190,7 @@ export default async function AcordoPage({
       {operacaoAtiva && (
         <Link
           href={`/acordos/${id}?aba=operacao`}
-          className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-brand-100 bg-gradient-to-r from-brand-50 via-white to-violet-50 px-4 py-3 text-sm hover:border-brand-200"
+          className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-brand-100 bg-gradient-to-r from-brand-50 via-white to-rem-50 px-4 py-3 text-sm hover:border-brand-200"
         >
           <span className="font-semibold text-brand-800">{operacaoAtiva.codigo}</span>
           <span className="text-slate-600">
@@ -404,24 +413,24 @@ export default async function AcordoPage({
                 />
                 <CardBody className="space-y-4">
                   <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="rounded-xl bg-brand-50 p-3">
+                    <div className="rounded-xl bg-juros-100 p-3">
                       <p className="text-xs text-slate-500">{formatDecimalBR(o.percentual_emprestimo)}% para juros</p>
-                      <p className="tabular mt-1 text-lg font-semibold text-brand-700">{formatBRL(o.total_juros)}</p>
+                      <p className="tabular mt-1 text-lg font-semibold text-juros-700">{formatBRL(o.total_juros)}</p>
                     </div>
                     <div className="rounded-xl bg-emerald-50 p-3">
                       <p className="text-xs text-slate-500">{formatDecimalBR(o.percentual_reserva)}% para reserva</p>
                       <p className="tabular mt-1 text-lg font-semibold text-emerald-700">{formatBRL(o.total_reserva)}</p>
                     </div>
-                    <div className="rounded-xl bg-violet-50 p-3">
+                    <div className="rounded-xl bg-rem-50 p-3">
                       <p className="text-xs text-slate-500">Remanescente</p>
-                      <p className="tabular mt-1 text-lg font-semibold text-violet-700">{formatBRL(o.total_remanescente)}</p>
+                      <p className="tabular mt-1 text-lg font-semibold text-rem-700">{formatBRL(o.total_remanescente)}</p>
                     </div>
                   </div>
                   <SplitBar
                     partes={[
-                      { valor: Number(o.total_juros), tone: "brand" },
+                      { valor: Number(o.total_juros), tone: "juros" },
                       { valor: Number(o.total_reserva), tone: "green" },
-                      { valor: Number(o.total_remanescente), tone: "violet" },
+                      { valor: Number(o.total_remanescente), tone: "rem" },
                     ]}
                   />
                   {o.ativa && o.proxima_parcela_valor !== null && (

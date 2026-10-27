@@ -20,11 +20,12 @@ import { PagamentoDialog } from "@/modules/emprestimos/components/pagamento-dial
 import { ReservaDialog } from "@/modules/emprestimos/components/reserva-dialog";
 import { EstornoButton } from "@/modules/emprestimos/components/estorno-button";
 import { HistoricoAuditoria } from "@/components/ui/historico-auditoria";
-import { CoberturaCard } from "@/modules/operacoes/components/cobertura-card";
-import { QuitarReservaButton } from "@/modules/operacoes/components/quitar-reserva-button";
+import { ResumoEmprestimo } from "@/modules/emprestimos/components/resumo-emprestimo";
+import { LinhaDoTempo } from "@/modules/emprestimos/components/linha-do-tempo";
 import type {
   CoberturaEmprestimo,
   Competencia,
+  DestinacaoView,
   EmprestimoPosicao,
   MovimentoReserva,
   OperacaoView,
@@ -36,6 +37,7 @@ import type {
 export const metadata: Metadata = { title: "Empréstimo" };
 
 const ABAS = [
+  { id: "linha", label: "O que aconteceu" },
   { id: "cronograma", label: "Cronograma" },
   { id: "pagamentos", label: "Pagamentos" },
   { id: "reservas", label: "Reservas" },
@@ -51,13 +53,13 @@ export default async function EmprestimoPage({
   searchParams: Promise<{ aba?: string }>;
 }) {
   const { id } = await params;
-  const { aba = "cronograma" } = await searchParams;
+  const { aba = "linha" } = await searchParams;
   const supabase = await createClient();
   await garantirCompetencias(supabase, id);
   const perfil = await getPerfil();
   const editavel = podeEditar(perfil);
 
-  const [{ data: pos }, { data: comps }, { data: pags }, { data: movs }, { data: cob }, { data: ops }, { data: quit }] = await Promise.all([
+  const [{ data: pos }, { data: comps }, { data: pags }, { data: movs }, { data: cob }, { data: ops }, { data: quit }, { data: dest }] = await Promise.all([
     supabase.from("vw_emprestimo_posicao").select("*").eq("id", id).maybeSingle(),
     supabase.from("vw_competencias").select("*").eq("emprestimo_id", id).order("numero"),
     supabase
@@ -69,6 +71,7 @@ export default async function EmprestimoPage({
     supabase.from("vw_emprestimo_cobertura").select("*").eq("emprestimo_id", id).maybeSingle(),
     supabase.from("vw_operacoes").select("*").eq("emprestimo_id", id).order("ativa", { ascending: false }).order("codigo"),
     supabase.from("vw_emprestimo_quitacao_sugerida").select("*").eq("emprestimo_id", id).maybeSingle(),
+    supabase.from("vw_operacao_destinacoes").select("*").eq("emprestimo_id", id).is("estornado_em", null),
   ]);
   if (!pos) notFound();
 
@@ -81,6 +84,7 @@ export default async function EmprestimoPage({
   const operacoes = (ops ?? []) as OperacaoView[];
   const codigoOperacao = new Map(operacoes.map((o) => [o.id, o]));
   const quitacao = (quit ?? null) as QuitacaoSugerida | null;
+  const destinacoes = (dest ?? []) as DestinacaoView[];
 
   let auditoria: RegistroAuditoria[] = [];
   if (aba === "historico" && perfil?.papel === "admin") {
@@ -114,14 +118,6 @@ export default async function EmprestimoPage({
               <Link href={`/emprestimos/${id}/editar`} className={buttonClasses("secondary", "sm")}>
                 <Pencil className="h-4 w-4" /> Editar
               </Link>
-              {quitacao?.reserva_cobre_principal && (
-                <QuitarReservaButton
-                  emprestimoId={id}
-                  principalDevido={quitacao.principal_devido}
-                  reservaSaldo={quitacao.reserva_saldo}
-                  dataSugerida={quitacao.data_sugerida}
-                />
-              )}
               <ReservaDialog emprestimoId={id} saldoReserva={e.reserva_saldo} />
               <PagamentoDialog
                 emprestimoId={id}
@@ -134,53 +130,48 @@ export default async function EmprestimoPage({
         }
       />
 
+      <ResumoEmprestimo e={e} cobertura={cobertura} quitacao={quitacao} editavel={editavel} />
+
+      <details className="group mt-4 rounded-2xl border border-slate-200 bg-white">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-3 text-sm font-semibold text-slate-700 hover:text-slate-950">
+          Ver todos os números
+          <span className="text-slate-500 transition-transform group-open:rotate-180" aria-hidden>▾</span>
+        </summary>
+        <div className="border-t border-slate-100 p-4">
       {/* As cinco grandezas que não podem se misturar */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <Stat
-          label="Juros contratualmente devidos"
-          value={formatBRL(e.juros_devidos_ate_hoje)}
-          hint={`até hoje · ${formatBRL(e.juros_mensal)}/mês · contrato ${formatBRL(e.juros_contratados_total)}`}
-        />
-        <Stat label="Valores pagos ao credor" value={formatBRL(e.total_pago)} tone="positive" hint={`${e.qtd_pagamentos} pagamento(s) · juros ${formatBRL(e.juros_pagos)} · principal ${formatBRL(e.principal_pago)}`} />
-        <Stat label="Reserva constituída" value={formatBRL(e.reserva_saldo)} tone="info" hint="não é pagamento ao credor" />
-        <Stat
-          label="Juros vencidos não pagos"
-          value={formatBRL(e.juros_vencidos_nao_pagos)}
-          tone={Number(e.juros_vencidos_nao_pagos) > 0 ? "negative" : "default"}
-          hint={`${e.competencias_atrasadas} competência(s) em aberto · sem novos juros`}
-        />
-        <Stat
-          label="Principal ainda devido"
-          value={formatBRL(e.principal_devido)}
-          tone={e.data_quitacao_principal ? "positive" : "default"}
-          hint={
-            e.data_quitacao_principal
-              ? `quitado em ${formatDateBR(e.data_quitacao_principal)}`
-              : `vence em ${formatDateBR(e.data_vencimento_principal)}`
-          }
-        />
-      </div>
-
-      <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        <Stat label="Saldo devedor exigível hoje" value={formatBRL(e.saldo_devedor_exigivel)} hint="principal devido + juros vencidos não pagos" />
-        <Stat label="Saldo contratual total" value={formatBRL(e.saldo_devedor_contratual)} hint="inclui juros ainda a vencer" />
-        <Stat label="Próximo vencimento de juros" value={formatDateBR(e.proximo_vencimento)} />
-      </div>
-
-      {(operacoes.length > 0 || cobertura) && (
-        <div className="mt-4">
-          <CoberturaCard cobertura={cobertura} operacoes={operacoes} jurosMensal={e.juros_mensal} />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+          <Stat
+            label="Juros contratualmente devidos"
+            value={formatBRL(e.juros_devidos_ate_hoje)}
+            hint={`até hoje · ${formatBRL(e.juros_mensal)}/mês · contrato ${formatBRL(e.juros_contratados_total)}`}
+          />
+          <Stat label="Valores pagos ao credor" value={formatBRL(e.total_pago)} tone="positive" hint={`${e.qtd_pagamentos} pagamento(s) · juros ${formatBRL(e.juros_pagos)} · principal ${formatBRL(e.principal_pago)}`} />
+          <Stat label="Reserva constituída" value={formatBRL(e.reserva_saldo)} tone="info" hint="não é pagamento ao credor" />
+          <Stat
+            label="Juros vencidos não pagos"
+            value={formatBRL(e.juros_vencidos_nao_pagos)}
+            tone={Number(e.juros_vencidos_nao_pagos) > 0 ? "negative" : "default"}
+            hint={`${e.competencias_atrasadas} competência(s) em aberto · sem novos juros`}
+          />
+          <Stat
+            label="Principal ainda devido"
+            value={formatBRL(e.principal_devido)}
+            tone={e.data_quitacao_principal ? "positive" : "default"}
+            hint={
+              e.data_quitacao_principal
+                ? `quitado em ${formatDateBR(e.data_quitacao_principal)}`
+                : `vence em ${formatDateBR(e.data_vencimento_principal)}`
+            }
+          />
         </div>
-      )}
-
-      {quitacao?.reserva_cobre_principal && (
-        <div className="mt-4">
-          <FormAlert tone="success">
-            A reserva ({formatBRL(quitacao.reserva_saldo)}) já cobre o principal em aberto ({formatBRL(quitacao.principal_devido)}).
-            {editavel ? " Use “Quitar principal com a reserva” quando quiser quitar." : ""}
-          </FormAlert>
+  
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <Stat label="Saldo devedor exigível hoje" value={formatBRL(e.saldo_devedor_exigivel)} hint="principal devido + juros vencidos não pagos" />
+          <Stat label="Saldo contratual total" value={formatBRL(e.saldo_devedor_contratual)} hint="inclui juros ainda a vencer" />
+          <Stat label="Próximo vencimento de juros" value={formatDateBR(e.proximo_vencimento)} />
         </div>
-      )}
+        </div>
+      </details>
 
       {e.competencias_pos_vencimento > 0 && !e.data_quitacao_principal && (
         <div className="mt-4">
@@ -227,6 +218,8 @@ export default async function EmprestimoPage({
       </div>
 
       <div className="mt-4">
+        {aba === "linha" && <LinhaDoTempo destinacoes={destinacoes} pagamentos={pagamentos} movimentos={movimentos} />}
+
         {aba === "cronograma" && (
           <Card>
             <CardHeader
@@ -333,7 +326,7 @@ export default async function EmprestimoPage({
                       <Td>{p.forma_pagamento ?? "—"}</Td>
                       <Td>
                         {p.operacao_id ? (
-                          <Badge tone="violet">Operação {codigoOperacao.get(p.operacao_id)?.codigo ?? ""}</Badge>
+                          <Badge tone="rem">Operação {codigoOperacao.get(p.operacao_id)?.codigo ?? ""}</Badge>
                         ) : p.origem_reserva ? (
                           <Badge tone="blue">Reserva</Badge>
                         ) : (
@@ -411,7 +404,7 @@ export default async function EmprestimoPage({
                       <Td className="max-w-xs whitespace-normal text-xs">
                         {m.observacoes}
                         {m.operacao_id && (
-                          <span className="block text-violet-700">
+                          <span className="block text-rem-700">
                             Operação {codigoOperacao.get(m.operacao_id)?.codigo} · {codigoOperacao.get(m.operacao_id)?.processo_codigo}
                           </span>
                         )}
@@ -475,9 +468,9 @@ export default async function EmprestimoPage({
                       {Number(o.percentual_emprestimo).toLocaleString("pt-BR")}% juros · {Number(o.percentual_reserva).toLocaleString("pt-BR")}% reserva
                     </Td>
                     <Td align="right">{o.ativa ? formatBRL(o.contribuicao_juros_prevista) : "—"}</Td>
-                    <Td align="right" className="text-brand-700">{formatBRL(o.total_juros)}</Td>
+                    <Td align="right" className="text-juros-700">{formatBRL(o.total_juros)}</Td>
                     <Td align="right" className="text-emerald-700">{formatBRL(o.total_reserva)}</Td>
-                    <Td align="right" className="text-violet-700">{formatBRL(o.total_remanescente)}</Td>
+                    <Td align="right" className="text-rem-700">{formatBRL(o.total_remanescente)}</Td>
                   </tr>
                 ))}
               </tbody>
