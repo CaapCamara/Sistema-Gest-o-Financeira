@@ -151,7 +151,8 @@ Fluxo do convite: o admin convida em **Authentication → Users → Invite user*
 1. **SMTP próprio (obrigatório para uso real).** O SMTP padrão do Supabase só entrega para membros da equipe do projeto e tem limite baixo de envios por hora. Configure um provedor (Resend, Amazon SES, Postmark etc.) com domínio próprio verificado (SPF/DKIM) em **Authentication → Emails → SMTP Settings**. Depois cole os modelos de `supabase/templates/` em **Emails → Templates** (Invite user e Reset password).
 2. **URL Configuration.** *Site URL* = domínio público da aplicação. *Redirect URLs*: `https://SEU-DOMINIO/**`.
 3. **Variáveis na Vercel:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `NEXT_PUBLIC_SITE_URL`.
-4. **Cadastro público desativado** e **política de senha** (10 caracteres, letras e números) em **Authentication → Sign In / Providers**.
+4. **Região das funções = região do banco.** `vercel.json` fixa as funções da Vercel em `gru1` (São Paulo), ao lado do Supabase em `sa-east-1`. Cada tela faz várias consultas ao banco. Com as funções em outra região (o padrão da Vercel é `iad1`, nos EUA), cada ida e volta custa mais de 100 ms. Se o projeto Supabase mudar de região, ajuste o `vercel.json`.
+5. **Cadastro público desativado** e **política de senha** (10 caracteres, letras e números) em **Authentication → Sign In / Providers**.
 
 ## Como rodar
 
