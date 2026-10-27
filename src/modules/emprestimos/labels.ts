@@ -14,6 +14,7 @@ export const SITUACAO_LABEL: Record<SituacaoCompetencia, { label: string; tone: 
   a_vencer: { label: "A vencer", tone: "gray" },
   parcial_atrasada: { label: "Parcial em atraso", tone: "red" },
   atrasada: { label: "Em atraso", tone: "red" },
+  nao_devida: { label: "Não devida (quitado)", tone: "gray" },
 };
 
 export const MOVIMENTO_RESERVA_LABEL: Record<TipoMovimentoReserva, string> = {

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { garantirCompetencias } from "@/modules/emprestimos/queries/competencias";
 import { PageHeader } from "@/components/ui/page-header";
 import { Simulador, type EmprestimoBase } from "@/modules/simulador/components/simulador";
 
@@ -7,6 +8,7 @@ export const metadata: Metadata = { title: "Simulador" };
 
 export default async function SimuladorPage() {
   const supabase = await createClient();
+  await garantirCompetencias(supabase);
   const { data } = await supabase
     .from("vw_emprestimo_posicao")
     .select(

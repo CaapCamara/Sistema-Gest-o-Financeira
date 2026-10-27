@@ -6,7 +6,7 @@ export type StatusEmprestimo = "ativo" | "quitado" | "renegociado" | "cancelado"
 export type TipoPessoa = "PF" | "PJ";
 export type TipoImputacao = "juros" | "principal";
 export type TipoMovimentoReserva = "aporte" | "resgate" | "utilizacao_pagamento";
-export type SituacaoCompetencia = "paga" | "parcial" | "a_vencer" | "parcial_atrasada" | "atrasada";
+export type SituacaoCompetencia = "paga" | "parcial" | "a_vencer" | "parcial_atrasada" | "atrasada" | "nao_devida";
 
 type Num = number | string;
 
@@ -83,6 +83,9 @@ export interface EmprestimoPosicao {
   proximo_vencimento: string | null;
   em_atraso: boolean;
   observacoes: string | null;
+  data_quitacao_principal: string | null;
+  competencias_pos_vencimento: number;
+  juros_pos_vencimento: Num;
 }
 
 export interface Competencia {
@@ -100,6 +103,10 @@ export interface Competencia {
   situacao: SituacaoCompetencia;
   pagamento_realizado_mes: Num;
   reserva_realizada_mes: Num;
+  /** Juros fixos do contrato, antes de eventual anulação pela quitação do principal. */
+  juros_contratual: Num;
+  pos_vencimento: boolean;
+  anulada_por_quitacao: boolean;
 }
 
 export interface Imputacao {

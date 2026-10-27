@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { garantirCompetencias } from "@/modules/emprestimos/queries/competencias";
 import { formatBRL, sum } from "@/lib/money";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -12,6 +13,7 @@ export const metadata: Metadata = { title: "Reservas" };
 
 export default async function ReservasPage() {
   const supabase = await createClient();
+  await garantirCompetencias(supabase);
   const { data } = await supabase
     .from("vw_emprestimo_posicao")
     .select("id, codigo, credor_nome, status, reserva_aportes, reserva_saidas, reserva_saldo, saldo_devedor_exigivel, valor_mensal_reserva_planejado")

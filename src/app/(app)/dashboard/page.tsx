@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AlertTriangle, CalendarClock, Landmark, PiggyBank, Wallet, Receipt, Scale } from "lucide-react";
 import { endOfMonth, startOfMonth, addDays } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
+import { garantirCompetencias } from "@/modules/emprestimos/queries/competencias";
 import { formatBRL, sum } from "@/lib/money";
 import { formatDateBR, hojeISO, parseDateOnly, toISODate } from "@/lib/dates";
 import { PageHeader } from "@/components/ui/page-header";
@@ -16,6 +17,7 @@ export const metadata: Metadata = { title: "Painel" };
 
 export default async function DashboardPage() {
   const supabase = await createClient();
+  await garantirCompetencias(supabase);
   const hoje = hojeISO();
   const d = parseDateOnly(hoje);
   const inicioMes = toISODate(startOfMonth(d));

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { garantirCompetencias } from "@/modules/emprestimos/queries/competencias";
 import { getPerfil, podeEditar } from "@/lib/auth";
 import { formatBRL, formatPercent, money } from "@/lib/money";
 import { formatDateBR, formatDateTimeBR, formatMesAno } from "@/lib/dates";
@@ -39,6 +40,7 @@ export default async function EmprestimoPage({
   const { id } = await params;
   const { aba = "cronograma" } = await searchParams;
   const supabase = await createClient();
+  await garantirCompetencias(supabase, id);
   const perfil = await getPerfil();
   const editavel = podeEditar(perfil);
 
@@ -119,7 +121,16 @@ export default async function EmprestimoPage({
           tone={Number(e.juros_vencidos_nao_pagos) > 0 ? "negative" : "default"}
           hint={`${e.competencias_atrasadas} competência(s) em aberto · sem novos juros`}
         />
-        <Stat label="Principal ainda devido" value={formatBRL(e.principal_devido)} hint={`vence em ${formatDateBR(e.data_vencimento_principal)}`} />
+        <Stat
+          label="Principal ainda devido"
+          value={formatBRL(e.principal_devido)}
+          tone={e.data_quitacao_principal ? "positive" : "default"}
+          hint={
+            e.data_quitacao_principal
+              ? `quitado em ${formatDateBR(e.data_quitacao_principal)}`
+              : `vence em ${formatDateBR(e.data_vencimento_principal)}`
+          }
+        />
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -127,6 +138,25 @@ export default async function EmprestimoPage({
         <Stat label="Saldo contratual total" value={formatBRL(e.saldo_devedor_contratual)} hint="inclui juros ainda a vencer" />
         <Stat label="Próximo vencimento de juros" value={formatDateBR(e.proximo_vencimento)} />
       </div>
+
+      {e.competencias_pos_vencimento > 0 && !e.data_quitacao_principal && (
+        <div className="mt-4">
+          <FormAlert>
+            O principal venceu em {formatDateBR(e.data_vencimento_principal)} sem quitação. Os juros fixos de{" "}
+            {formatBRL(e.juros_mensal)} continuam vencendo todo mês: {e.competencias_pos_vencimento} competência(s) após o
+            prazo, somando {formatBRL(e.juros_pos_vencimento)} já vencidos.
+          </FormAlert>
+        </div>
+      )}
+
+      {e.data_quitacao_principal && (
+        <div className="mt-4">
+          <FormAlert tone="success">
+            Principal quitado em {formatDateBR(e.data_quitacao_principal)}. Os juros das competências com vencimento
+            posterior deixaram de ser devidos.
+          </FormAlert>
+        </div>
+      )}
 
       {jurosContratadosDiverge && (
         <div className="mt-4">
@@ -158,7 +188,7 @@ export default async function EmprestimoPage({
           <Card>
             <CardHeader
               title="Cronograma mensal — previsto x realizado"
-              description="Juros por competência (abatidos pelos pagamentos) e valores realizados no mês civil do vencimento."
+              description="Juros por competência (abatidos pelos pagamentos) e valores realizados no mês civil do vencimento. Competências pós-prazo surgem enquanto o principal vencido não for quitado."
             />
             <Table>
               <thead>
@@ -179,13 +209,29 @@ export default async function EmprestimoPage({
               <tbody>
                 {competencias.length === 0 && <EmptyRow colSpan={11}>Sem competências.</EmptyRow>}
                 {competencias.map((c) => (
-                  <tr key={c.id} className={cn("hover:bg-slate-50", c.vencida && Number(c.juros_em_aberto) > 0 && "bg-red-50/40")}>
-                    <Td>{c.numero}</Td>
+                  <tr
+                    key={c.id}
+                    className={cn(
+                      "hover:bg-slate-50",
+                      c.vencida && Number(c.juros_em_aberto) > 0 && "bg-red-50/40",
+                      c.anulada_por_quitacao && "text-slate-400",
+                    )}
+                  >
+                    <Td>
+                      {c.numero}
+                      {c.pos_vencimento && (
+                        <Badge tone="amber" className="ml-1">
+                          pós-prazo
+                        </Badge>
+                      )}
+                    </Td>
                     <Td>
                       {formatDateBR(c.data_vencimento)}
                       <span className="ml-1 text-xs text-slate-400">{formatMesAno(c.data_vencimento)}</span>
                     </Td>
-                    <Td align="right">{formatBRL(c.juros_devido)}</Td>
+                    <Td align="right">
+                      {c.anulada_por_quitacao ? <s title="Não devida: principal quitado antes do vencimento">{formatBRL(c.juros_contratual)}</s> : formatBRL(c.juros_devido)}
+                    </Td>
                     <Td align="right" className="text-emerald-700">{formatBRL(c.juros_pago)}</Td>
                     <Td align="right" className={Number(c.juros_em_aberto) > 0 && c.vencida ? "font-medium text-red-700" : ""}>
                       {formatBRL(c.juros_em_aberto)}

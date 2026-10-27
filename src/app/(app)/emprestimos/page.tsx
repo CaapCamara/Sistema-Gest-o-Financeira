@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { garantirCompetencias } from "@/modules/emprestimos/queries/competencias";
 import { getPerfil, podeEditar } from "@/lib/auth";
 import { formatBRL, formatPercent } from "@/lib/money";
 import { formatDateBR } from "@/lib/dates";
@@ -25,6 +26,7 @@ const FILTROS = [
 export default async function EmprestimosPage({ searchParams }: { searchParams: Promise<{ filtro?: string }> }) {
   const { filtro = "" } = await searchParams;
   const supabase = await createClient();
+  await garantirCompetencias(supabase);
   const perfil = await getPerfil();
 
   let query = supabase.from("vw_emprestimo_posicao").select("*").order("data_inicio", { ascending: false });

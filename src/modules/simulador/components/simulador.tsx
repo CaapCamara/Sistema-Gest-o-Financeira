@@ -120,7 +120,7 @@ export function Simulador({ emprestimos }: { emprestimos: EmprestimoBase[] }) {
       <FormAlert tone="info">
         A simulação é feita apenas na tela e <strong>não altera nenhum registro</strong>. Regras aplicadas: juros fixos
         sobre o principal original, juros não pagos acumulam sem novos juros, pagamento abate juros e depois principal, e
-        reserva não reduz a dívida. Premissa da simulação: os juros deixam de correr quando o principal é quitado.
+        reserva não reduz a dívida e os juros deixam de correr quando o principal é quitado.
       </FormAlert>
 
       <div className="grid gap-4 lg:grid-cols-2">

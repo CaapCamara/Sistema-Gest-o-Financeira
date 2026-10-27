@@ -8,7 +8,9 @@ import { jurosMensal } from "@/modules/emprestimos/domain/juros";
  *  - juros fixos mensais sobre o principal original (sem capitalização);
  *  - juros não pagos acumulam sem gerar novos juros;
  *  - pagamento abate primeiro juros em aberto, depois principal;
- *  - reserva é acumulada à parte e não abate a dívida.
+ *  - reserva é acumulada à parte e não abate a dívida;
+ *  - quitado o principal, os juros seguintes deixam de ser devidos;
+ *  - sem multa, mora ou correção monetária.
  */
 export interface CenarioInput {
   nome: string;
@@ -68,7 +70,7 @@ export function simularCenario(c: CenarioInput): ResultadoCenario {
   const detalhe: MesSimulado[] = [];
 
   for (let mes = 1; mes <= c.meses; mes++) {
-    // Juros só correm enquanto houver principal devido (premissa da simulação)
+    // Quitado o principal, os juros seguintes deixam de ser devidos (regra confirmada)
     const jurosDoMes = principal.greaterThan(0) ? juros : new Decimal(0);
     jurosAberto = jurosAberto.plus(jurosDoMes);
     totalJuros = totalJuros.plus(jurosDoMes);
