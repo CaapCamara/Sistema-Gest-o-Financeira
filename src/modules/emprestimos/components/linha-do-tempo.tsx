@@ -128,7 +128,8 @@ export function LinhaDoTempo({
     const chave = ev.data.slice(0, 7);
     let g = grupos.find((x) => x.chave === chave);
     if (!g) {
-      g = { chave, rotulo: `${mesPorExtenso(ev.data)} de ${ev.data.slice(0, 4)}`, itens: [] };
+      const mes = mesPorExtenso(ev.data);
+      g = { chave, rotulo: `${mes.charAt(0).toUpperCase()}${mes.slice(1)} de ${ev.data.slice(0, 4)}`, itens: [] };
       grupos.push(g);
     }
     g.itens.push(ev);
@@ -138,7 +139,7 @@ export function LinhaDoTempo({
     <div className="space-y-8">
       {grupos.map((g) => (
         <section key={g.chave}>
-          <h3 className="font-display mb-3 text-lg font-bold capitalize text-slate-950">{g.rotulo}</h3>
+          <h3 className="font-display mb-3 text-lg font-bold text-slate-950">{g.rotulo}</h3>
           <ol className="relative space-y-3 border-l border-slate-200 pl-6">
             {g.itens.map((ev) => {
               const { icone: Icone, cor } = ICONE[ev.tipo];
