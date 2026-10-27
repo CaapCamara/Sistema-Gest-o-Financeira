@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, CalendarClock, Landmark, PiggyBank, Wallet, Receipt, Scale } from "lucide-react";
+import { AlertTriangle, CalendarClock, FileCheck2, Handshake, Landmark, PiggyBank, Wallet, Receipt, HandCoins } from "lucide-react";
 import { endOfMonth, startOfMonth, addDays } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { garantirCompetencias } from "@/modules/emprestimos/queries/competencias";
 import { formatBRL, sum } from "@/lib/money";
 import { formatDateBR, hojeISO, parseDateOnly, toISODate } from "@/lib/dates";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Stat } from "@/components/ui/stat";
 import { Badge } from "@/components/ui/badge";
 import { Table, Th, Td, EmptyRow } from "@/components/ui/table";
-import type { Competencia, EmprestimoPosicao } from "@/types/db";
+import { SITUACAO_PARCELA_LABEL } from "@/modules/acordos/labels";
+import type { AcordoPosicao, Competencia, EmprestimoPosicao, ParcelaPosicao } from "@/types/db";
 
 export const metadata: Metadata = { title: "Painel" };
 
@@ -24,7 +25,16 @@ export default async function DashboardPage() {
   const fimMes = toISODate(endOfMonth(d));
   const em30 = toISODate(addDays(d, 30));
 
-  const [{ data: pos }, { data: compsMes }, { data: proximos }, { data: pagsMes }] = await Promise.all([
+  const [
+    { data: pos },
+    { data: compsMes },
+    { data: proximos },
+    { data: pagsMes },
+    { data: acordosData },
+    { data: parcelasMes },
+    { data: parcelasProximas },
+    { data: recebimentosMes },
+  ] = await Promise.all([
     supabase.from("vw_emprestimo_posicao").select("*"),
     supabase.from("vw_competencias").select("emprestimo_id, juros_devido, juros_em_aberto").gte("data_vencimento", inicioMes).lte("data_vencimento", fimMes),
     supabase
@@ -35,6 +45,22 @@ export default async function DashboardPage() {
       .order("data_vencimento")
       .limit(50),
     supabase.from("pagamentos").select("emprestimo_id, valor_total").is("estornado_em", null).gte("data_pagamento", inicioMes).lte("data_pagamento", fimMes),
+    supabase.from("vw_acordo_posicao").select("*").eq("status", "ativo"),
+    supabase
+      .from("vw_acordo_parcelas")
+      .select("valor, valor_recebido")
+      .eq("acordo_status", "ativo")
+      .gte("data_vencimento", inicioMes)
+      .lte("data_vencimento", fimMes),
+    supabase
+      .from("vw_acordo_parcelas")
+      .select("*")
+      .eq("acordo_status", "ativo")
+      .gt("saldo", 0)
+      .lte("data_vencimento", em30)
+      .order("data_vencimento")
+      .limit(50),
+    supabase.from("acordo_recebimentos").select("valor").is("estornado_em", null).gte("data_recebimento", inicioMes).lte("data_recebimento", fimMes),
   ]);
 
   const todos = (pos ?? []) as EmprestimoPosicao[];
@@ -55,6 +81,17 @@ export default async function DashboardPage() {
     (e) => Number(e.principal_devido) > 0 && e.data_vencimento_principal <= em30,
   );
 
+  const acordosAtivos = (acordosData ?? []) as AcordoPosicao[];
+  const acordoPorId = new Map(acordosAtivos.map((a) => [a.id, a]));
+  const previstasMes = parcelasMes ?? [];
+  const valorPrevistoMes = sum(previstasMes.map((p) => p.valor));
+  const recebidoDasPrevistas = sum(previstasMes.map((p) => p.valor_recebido));
+  const recebidoMes = sum((recebimentosMes ?? []).map((r) => r.valor));
+  const parcelasAtrasadas = acordosAtivos.reduce((n, a) => n + a.parcelas_atrasadas, 0);
+  const valorAtrasado = sum(acordosAtivos.map((a) => a.valor_atrasado));
+  const saldoAcordos = sum(acordosAtivos.map((a) => a.saldo_em_aberto));
+  const listaParcelas = (parcelasProximas ?? []) as ParcelaPosicao[];
+
   return (
     <>
       <PageHeader title="Painel" description={`Posição em ${formatDateBR(hoje)}`} />
@@ -69,8 +106,8 @@ export default async function DashboardPage() {
         <Stat label="Juros vencidos não pagos" value={formatBRL(jurosAtrasados)} tone={jurosAtrasados.greaterThan(0) ? "negative" : "default"} icon={<AlertTriangle className="h-4 w-4" />} />
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
+      <div className="mt-6">
+        <Card>
           <CardHeader title="Próximos vencimentos e atrasos" description="Juros em aberto vencidos ou com vencimento nos próximos 30 dias." />
           <Table>
             <thead>
@@ -118,19 +155,64 @@ export default async function DashboardPage() {
           </Table>
         </Card>
 
-        <Card>
-          <CardHeader title="Acordos e processos" description="Módulo 2" />
-          <CardBody className="space-y-3 text-sm text-slate-600">
-            <div className="flex items-center gap-2 text-slate-500">
-              <Scale className="h-4 w-4" /> Em desenvolvimento (próxima etapa).
-            </div>
-            <p>
-              Aqui aparecerão: acordos ativos, parcelas previstas e recebidas, parcelas atrasadas, protocolos pendentes e
-              processos sem NUPE.
-            </p>
-          </CardBody>
-        </Card>
       </div>
+
+      <h2 className="mb-3 mt-8 text-sm font-semibold uppercase tracking-wide text-slate-500">Acordos e processos</h2>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <Stat label="Acordos ativos" value={acordosAtivos.length} icon={<Handshake className="h-4 w-4" />} hint={`em aberto ${formatBRL(saldoAcordos)}`} />
+        <Stat
+          label="Parcelas previstas no mês"
+          value={formatBRL(valorPrevistoMes)}
+          icon={<CalendarClock className="h-4 w-4" />}
+          hint={`${previstasMes.length} parcela(s) · recebido ${formatBRL(recebidoDasPrevistas)}`}
+        />
+        <Stat label="Recebido no mês" value={formatBRL(recebidoMes)} tone="positive" icon={<HandCoins className="h-4 w-4" />} hint="todos os recebimentos do mês" />
+        <Stat
+          label="Parcelas atrasadas"
+          value={parcelasAtrasadas}
+          tone={parcelasAtrasadas > 0 ? "negative" : "default"}
+          icon={<AlertTriangle className="h-4 w-4" />}
+          hint={`${formatBRL(valorAtrasado)} após a carência`}
+        />
+        <Stat label="Protocolos pendentes" value="—" icon={<FileCheck2 className="h-4 w-4" />} hint="próxima etapa" />
+        <Stat label="Processos sem NUPE" value="—" icon={<FileCheck2 className="h-4 w-4" />} hint="próxima etapa" />
+      </div>
+
+      <Card className="mt-6">
+        <CardHeader title="Parcelas de acordos: atrasos e próximos vencimentos" description="Parcelas em aberto vencidas ou com vencimento nos próximos 30 dias." />
+        <Table>
+          <thead>
+            <tr>
+              <Th>Vencimento</Th>
+              <Th>Acordo</Th>
+              <Th>Processo</Th>
+              <Th>Parcela</Th>
+              <Th align="right">Em aberto</Th>
+              <Th />
+            </tr>
+          </thead>
+          <tbody>
+            {listaParcelas.length === 0 && <EmptyRow colSpan={6}>Nenhuma parcela vencida ou a vencer nos próximos 30 dias.</EmptyRow>}
+            {listaParcelas.map((p) => {
+              const a = acordoPorId.get(p.acordo_id);
+              return (
+                <tr key={p.id} className="hover:bg-slate-50">
+                  <Td>{formatDateBR(p.data_vencimento)}</Td>
+                  <Td>
+                    <Link href={`/acordos/${p.acordo_id}`} className="text-brand-700 hover:underline">{a?.codigo}</Link>
+                  </Td>
+                  <Td>{a?.numero_processo ?? a?.processo_codigo}</Td>
+                  <Td>{p.numero}</Td>
+                  <Td align="right">{formatBRL(p.saldo)}</Td>
+                  <Td>
+                    <Badge tone={SITUACAO_PARCELA_LABEL[p.situacao].tone}>{SITUACAO_PARCELA_LABEL[p.situacao].label}</Badge>
+                  </Td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </Card>
     </>
   );
 }

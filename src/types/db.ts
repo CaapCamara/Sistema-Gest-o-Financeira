@@ -7,6 +7,13 @@ export type TipoPessoa = "PF" | "PJ";
 export type TipoImputacao = "juros" | "principal";
 export type TipoMovimentoReserva = "aporte" | "resgate" | "utilizacao_pagamento";
 export type SituacaoCompetencia = "paga" | "parcial" | "a_vencer" | "parcial_atrasada" | "atrasada" | "nao_devida";
+export type StatusProcesso = "ativo" | "encerrado" | "arquivado";
+export type PoloProcesso = "requerente" | "requerido";
+export type StatusAcordo = "ativo" | "quitado" | "renegociado" | "cancelado";
+export type ModoParcelas = "automatico" | "manual";
+export type OrigemRecebimento = "manual" | "extrato";
+export type SituacaoParcela = "recebida" | "parcial" | "a_vencer" | "em_carencia" | "parcial_atrasada" | "atrasada";
+export type SituacaoFinanceiraAcordo = "sem_parcelas" | "quitado" | "em_atraso" | "em_carencia" | "em_dia";
 
 type Num = number | string;
 
@@ -142,6 +149,131 @@ export interface MovimentoReserva {
   estornado_em: string | null;
   motivo_estorno: string | null;
   criado_em: string;
+}
+
+export interface Processo {
+  id: string;
+  codigo: string;
+  numero_processo: string | null;
+  data_audiencia: string | null;
+  status: StatusProcesso;
+  observacoes: string | null;
+  excluido_em: string | null;
+  criado_em: string;
+}
+
+export interface ProcessoParte {
+  id: string;
+  processo_id: string;
+  polo: PoloProcesso;
+  nome: string;
+  tipo_pessoa: TipoPessoa;
+  documento: string | null;
+  contato: string | null;
+}
+
+export interface ProcessoResumo {
+  id: string;
+  codigo: string;
+  numero_processo: string | null;
+  data_audiencia: string | null;
+  status: StatusProcesso;
+  observacoes: string | null;
+  criado_em: string;
+  requerentes: string;
+  requeridos: string;
+  qtd_acordos: number;
+  qtd_acordos_ativos: number;
+  valor_acordos_ativos: Num;
+  recebido_acordos_ativos: Num;
+  saldo_acordos_ativos: Num;
+  parcelas_atrasadas: number;
+  em_atraso: boolean;
+}
+
+export interface Acordo {
+  id: string;
+  codigo: string;
+  processo_id: string;
+  polo_pagador: PoloProcesso;
+  valor_total: Num;
+  condicoes_pagamento: string | null;
+  dias_carencia: number;
+  modo_parcelas: ModoParcelas;
+  status: StatusAcordo;
+  observacoes: string | null;
+  excluido_em: string | null;
+}
+
+export interface AcordoPosicao {
+  id: string;
+  codigo: string;
+  processo_id: string;
+  processo_codigo: string;
+  numero_processo: string | null;
+  polo_pagador: PoloProcesso;
+  valor_total: Num;
+  condicoes_pagamento: string | null;
+  dias_carencia: number;
+  modo_parcelas: ModoParcelas;
+  status: StatusAcordo;
+  observacoes: string | null;
+  criado_em: string;
+  requerentes: string;
+  requeridos: string;
+  qtd_parcelas: number;
+  soma_parcelas: Num;
+  diferenca_parcelas: Num;
+  total_recebido: Num;
+  saldo_em_aberto: Num;
+  parcelas_recebidas: number;
+  parcelas_atrasadas: number;
+  valor_atrasado: Num;
+  parcelas_em_carencia: number;
+  proximo_vencimento: string | null;
+  qtd_recebimentos: number;
+  ultimo_recebimento: string | null;
+  situacao_financeira: SituacaoFinanceiraAcordo;
+  em_atraso: boolean;
+}
+
+export interface ParcelaPosicao {
+  id: string;
+  acordo_id: string;
+  processo_id: string;
+  numero: number;
+  valor: Num;
+  data_vencimento: string;
+  acordo_status: StatusAcordo;
+  dias_carencia: number;
+  data_limite: string;
+  valor_recebido: Num;
+  ultimo_recebimento: string | null;
+  saldo: Num;
+  situacao: SituacaoParcela;
+  atrasada: boolean;
+}
+
+export interface RecebimentoImputacao {
+  id: string;
+  parcela_id: string;
+  valor: Num;
+}
+
+export interface Recebimento {
+  id: string;
+  acordo_id: string;
+  data_recebimento: string;
+  valor: Num;
+  parcela_indicada_id: string | null;
+  forma_pagamento: string | null;
+  origem: OrigemRecebimento;
+  referencia_externa: string | null;
+  observacoes: string | null;
+  estornado_em: string | null;
+  motivo_estorno: string | null;
+  criado_em: string;
+  acordo_recebimento_imputacoes?: RecebimentoImputacao[];
 }
 
 export interface RegistroAuditoria {

@@ -9,4 +9,6 @@ psql -v ON_ERROR_STOP=1 -q -d "$DB" -f supabase/tests/stub_supabase.sql
 for f in supabase/migrations/*.sql; do
   psql -v ON_ERROR_STOP=1 -q -d "$DB" -f "$f"
 done
-psql -v ON_ERROR_STOP=1 -d "$DB" -f supabase/tests/teste_regras_emprestimos.sql | tail -3
+for f in supabase/tests/teste_*.sql; do
+  psql -v ON_ERROR_STOP=1 -d "$DB" -f "$f" | tail -3
+done

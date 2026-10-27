@@ -2,7 +2,8 @@
 \set ON_ERROR_STOP 1
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-000000000001', 'admin@teste.local'),
-  ('00000000-0000-0000-0000-000000000002', 'leitor@teste.local');
+  ('00000000-0000-0000-0000-000000000002', 'leitor@teste.local')
+on conflict (id) do nothing;
 select id, papel from public.perfis order by email;
 
 set role authenticated;

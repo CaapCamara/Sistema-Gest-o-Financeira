@@ -13,9 +13,9 @@ Aplicação web privada para controlar empréstimos, compromissos de pagamento, 
 | 2. Credores e empréstimos (cadastro completo) | ✅ |
 | 3. Motor financeiro: cronograma, juros, pagamentos, reservas, saldos | ✅ |
 | 4. Simulador de projeções | ✅ |
-| 5. Processos e acordos | ⏳ aguardando confirmação de regras |
+| 5. Processos, acordos, parcelas e recebimentos | ✅ |
 | 6. Documentos, protocolos GOV e histórico de movimentações | ⏳ |
-| 7. Painel completo (indicadores do Módulo 2) | ⏳ parcial (Módulo 1 pronto) |
+| 7. Painel completo (indicadores do Módulo 2) | ⏳ parcial (falta protocolos e NUPE) |
 | 8. Finalização e implantação | ⏳ |
 
 ## Regras de negócio implementadas (Módulo 1)
@@ -29,6 +29,9 @@ Regras confirmadas com o responsável:
    - *Manual:* o usuário informa quanto vai para juros e quanto vai para principal. A parte de juros abate do mais antigo em aberto.
 4. **Reserva por empréstimo, com visão consolidada.** Reserva **nunca** conta como pagamento. Quando a reserva é usada para pagar o credor, registra-se um pagamento com origem na reserva, e o sistema lança automaticamente a saída correspondente.
 5. **Juros contratados (total) são digitados** conforme o contrato. O sistema mostra a referência calculada (juros mensal × prazo) e avisa quando os dois valores diferem.
+6. **Quitação antecipada:** quitado o principal, os juros das competências seguintes deixam de ser devidos.
+7. **Principal vencido e não pago:** os juros continuam vencendo todo mês, em competências "pós-prazo" (criadas automaticamente).
+8. **Multa, mora e correção monetária não se aplicam** por enquanto.
 
 Decisões técnicas que o responsável pode revisar:
 
@@ -52,12 +55,35 @@ Decisões técnicas que o responsável pode revisar:
 
 Todos os saldos são **calculados** pelas views `vw_emprestimo_posicao` e `vw_competencias`. Nenhum saldo é digitado.
 
+## Regras de negócio implementadas (Módulo 2)
+
+Regras confirmadas com o responsável:
+
+1. **O acordo é entre terceiros.** Requerente e requerido pagam entre si; o sistema apenas acompanha. O valor do acordo **não entra** no caixa nem nos empréstimos. Cada acordo indica qual polo paga (o outro recebe).
+2. **Parcelas iguais ou digitadas.** No modo automático, o total é dividido em parcelas iguais (truncadas no centavo) e a diferença fica na última. Exemplo: R$ 1.000 em 3 vezes gera 333,33 + 333,33 + 333,34, com vencimentos mensais a partir do primeiro. No modo manual, cada parcela é digitada.
+3. **Soma diferente do total só gera aviso.** O bloqueio fica para uma versão futura.
+4. **Carência de 3 dias por padrão**, editável por acordo. A parcela fica **em carência** do dia seguinte ao vencimento até vencimento + carência, e **atrasada** depois disso, se ainda houver saldo.
+5. **Recebimento parcial é permitido.** Com a parcela indicada, o valor abate dela e o excedente vai para as parcelas seguintes (e, se sobrar, para as anteriores em aberto). Sem parcela indicada, abate da mais antiga em aberto. O valor não pode passar do saldo em aberto do acordo.
+6. **Responsável pelo protocolo é sempre um usuário do sistema** (usado na Etapa 6).
+
+Decisões técnicas que o responsável pode revisar:
+
+- A carência é contada em **dias corridos**.
+- Processos e acordos recebem identificador interno automático (`PRC-2026-0001`, `ACD-2026-0001`). O número do processo é opcional e único quando informado.
+- Um processo pode ter vários requerentes, vários requeridos e vários acordos (por exemplo, um acordo refeito com status "renegociado").
+- Um acordo com recebimentos não permite alterar as parcelas. É preciso estornar os recebimentos ou registrar um novo acordo.
+- Recebimentos são estornados com motivo obrigatório; nada é apagado. Já guardam `origem` (`manual` ou `extrato`) e `referencia_externa` para a futura conciliação com extrato bancário; a mesma referência não pode se repetir no mesmo acordo.
+- A situação financeira do acordo é calculada (`sem_parcelas`, `em_dia`, `em_carencia`, `em_atraso`, `quitado`). O status (`ativo`, `quitado`, `renegociado`, `cancelado`) é definido pelo usuário, e só acordos ativos entram nos totais do painel e do processo.
+
+Os saldos vêm das views `vw_acordo_parcelas`, `vw_acordo_posicao` e `vw_processo_resumo`. Recebimentos passam pelas funções `registrar_recebimento` e `estornar_recebimento`, e as parcelas por `definir_parcelas`.
+
 ## Estrutura
 
 ```
 src/
   app/(auth)/login          login e logout
-  app/(app)/...             telas protegidas (painel, empréstimos, credores, reservas, simulador, auditoria)
+  app/(app)/...             telas protegidas (painel, empréstimos, credores, reservas, simulador,
+                            processos, acordos, auditoria)
   modules/<modulo>/
     domain/                 regras e cálculos em TypeScript puro, com testes
     schemas/                validação (Zod), compartilhada entre cliente e servidor
@@ -74,7 +100,7 @@ supabase/
 
 - **RLS em todas as tabelas.** Papéis: `admin` (tudo, inclusive auditoria), `operador` (cadastra e lança) e `leitor` (somente consulta).
 - O **primeiro usuário** criado vira `admin` e os demais entram como `leitor`. O cadastro público está **desativado**: os usuários são convidados pelo painel do Supabase.
-- Os lançamentos financeiros passam por funções no banco (`registrar_pagamento`, `estornar_pagamento`), que validam as regras de forma atômica.
+- Os lançamentos financeiros passam por funções no banco (`registrar_pagamento`, `estornar_pagamento`, `registrar_recebimento`, `estornar_recebimento`, `definir_parcelas`), que validam as regras de forma atômica.
 - A tabela `auditoria` é preenchida por trigger em todas as tabelas de negócio e é somente leitura (visível ao admin).
 - A `service_role key` **nunca** é usada pela aplicação.
 
@@ -110,23 +136,18 @@ Importe o repositório na Vercel e configure as variáveis `NEXT_PUBLIC_SUPABASE
 npm test             # regras de cálculo (Vitest)
 npm run typecheck
 npm run lint
-npm run db:test      # migrações e regras no PostgreSQL (requer psql e um Postgres acessível)
+npm run db:test      # migrações e regras dos dois módulos no PostgreSQL (requer psql e um Postgres acessível)
 ```
 
 ## Pendências de confirmação
 
-**Empréstimos**
+**Acordos**
 
-- Se o principal for quitado antes do prazo, os juros fixos continuam devidos até o fim do contrato?
-- Depois do vencimento do principal sem quitação, novos juros mensais continuam a vencer?
-- Multa, mora e correção monetária se aplicam? Hoje **não** são calculadas.
+- A carência conta dias corridos ou dias úteis? Hoje são **dias corridos**.
+- Integração com extrato bancário: qual banco e qual formato (OFX, CSV, API)? A estrutura já está preparada.
 
-**Acordos e processos (Etapa 5)**
+**Protocolos GOV (Etapa 6)**
 
-Perguntas 11 a 15 da proposta inicial:
-
-- Lado financeiro do acordo.
-- Como as parcelas são geradas.
-- Critério de atraso.
-- Status de protocolo e formato do NUPE.
-- Quem é o responsável pelo protocolo.
+- Lista de status do protocolo. Ficará numa tabela configurável pelo admin, sem exigir nova migração.
+- Formato do NUPE. Hoje está previsto como texto livre.
+- Se um processo pode ter mais de um protocolo. A proposta é permitir vários.

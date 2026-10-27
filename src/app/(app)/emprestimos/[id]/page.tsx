@@ -19,6 +19,7 @@ import { MOVIMENTO_RESERVA_LABEL, SITUACAO_LABEL, STATUS_LABEL } from "@/modules
 import { PagamentoDialog } from "@/modules/emprestimos/components/pagamento-dialog";
 import { ReservaDialog } from "@/modules/emprestimos/components/reserva-dialog";
 import { EstornoButton } from "@/modules/emprestimos/components/estorno-button";
+import { HistoricoAuditoria } from "@/components/ui/historico-auditoria";
 import type { Competencia, EmprestimoPosicao, MovimentoReserva, Pagamento, RegistroAuditoria } from "@/types/db";
 
 export const metadata: Metadata = { title: "Empréstimo" };
@@ -367,38 +368,7 @@ export default async function EmprestimoPage({
           </Card>
         )}
 
-        {aba === "historico" && (
-          <Card>
-            <CardHeader title="Histórico de alterações" description="Registro automático de inclusões, alterações e estornos." />
-            {perfil?.papel !== "admin" ? (
-              <CardBody>
-                <p className="text-sm text-slate-500">Disponível apenas para administradores.</p>
-              </CardBody>
-            ) : (
-              <Table>
-                <thead>
-                  <tr>
-                    <Th>Quando</Th>
-                    <Th>Registro</Th>
-                    <Th>Ação</Th>
-                    <Th>Campos alterados</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {auditoria.length === 0 && <EmptyRow colSpan={4}>Sem registros.</EmptyRow>}
-                  {auditoria.map((a) => (
-                    <tr key={a.id} className="align-top">
-                      <Td>{formatDateTimeBR(a.criado_em)}</Td>
-                      <Td>{a.tabela}</Td>
-                      <Td>{a.acao}</Td>
-                      <Td className="whitespace-normal text-xs text-slate-600">{resumoAlteracao(a)}</Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            )}
-          </Card>
-        )}
+        {aba === "historico" && <HistoricoAuditoria registros={auditoria} admin={perfil?.papel === "admin"} />}
       </div>
 
       {e.observacoes && (
@@ -411,17 +381,4 @@ export default async function EmprestimoPage({
       )}
     </>
   );
-}
-
-const IGNORAR = new Set(["atualizado_em", "criado_em", "criado_por", "id"]);
-
-function resumoAlteracao(a: RegistroAuditoria): string {
-  if (a.acao === "INSERT") return "Registro criado";
-  if (a.acao === "DELETE") return "Registro removido";
-  const antes = a.dados_antes ?? {};
-  const depois = a.dados_depois ?? {};
-  const campos = Object.keys(depois).filter(
-    (k) => !IGNORAR.has(k) && JSON.stringify(antes[k]) !== JSON.stringify(depois[k]),
-  );
-  return campos.map((k) => `${k}: ${String(antes[k] ?? "—")} → ${String(depois[k] ?? "—")}`).join(" · ") || "—";
 }

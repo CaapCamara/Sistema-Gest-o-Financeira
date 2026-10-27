@@ -46,6 +46,13 @@ export const zPercent = () =>
 export const zDate = () =>
   z.string({ required_error: "Informe a data." }).refine(isISODate, "Informe uma data válida.");
 
+export const zDateOpcional = () =>
+  z
+    .string()
+    .optional()
+    .transform((v) => (v ? v : null))
+    .refine((v) => v === null || isISODate(v), "Informe uma data válida.");
+
 export const zTextoOpcional = () =>
   z
     .string()

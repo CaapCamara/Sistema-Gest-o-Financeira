@@ -5,6 +5,7 @@ import {
   PiggyBank,
   Calculator,
   Scale,
+  Handshake,
   FileCheck2,
   ShieldCheck,
   type LucideIcon,
@@ -40,7 +41,8 @@ export const NAVEGACAO: NavGroup[] = [
   {
     titulo: "Acordos e processos",
     itens: [
-      { href: "/processos", label: "Processos", icon: Scale, emBreve: true },
+      { href: "/processos", label: "Processos", icon: Scale },
+      { href: "/acordos", label: "Acordos", icon: Handshake },
       { href: "/protocolos", label: "Protocolos GOV", icon: FileCheck2, emBreve: true },
     ],
   },
