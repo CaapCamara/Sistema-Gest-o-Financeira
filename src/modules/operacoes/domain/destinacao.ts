@@ -63,7 +63,7 @@ export function previaRecebimento(
     const p = parcelas.find((x) => x.id === d.parcelaId);
     if (!p) continue;
     const cotas = cotasDaParcela(p.valor, percentualEmprestimo, percentualReserva);
-    const recebido = Decimal.max(money(p.valor).minus(p.saldo), 0);
+    const recebido = Decimal.max(money(p.valor).minus(money(p.saldo)), 0);
     const jaJuros = Decimal.min(recebido, cotas.emprestimo);
     const jaReserva = Decimal.min(recebido.minus(jaJuros), cotas.reserva);
     let disp = money(d.valor);
