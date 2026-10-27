@@ -41,7 +41,7 @@ export default async function OperacoesPage() {
         <Stat label="Destinado a juros" value={formatBRL(totalJuros)} icon={<CircleDollarSign className="h-4 w-4" />} tone="info" />
         <Stat label="Destinado à reserva" value={formatBRL(totalReserva)} icon={<PiggyBank className="h-4 w-4" />} tone="positive" />
         <Link href="/remanescente" className="rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
-          <Stat label="Montante remanescente" value={formatBRL(totalRemanescente)} icon={<Layers className="h-4 w-4" />} tone="violet" className="h-full" hint="ver por operação →" />
+          <Stat label="Montante remanescente" value={formatBRL(totalRemanescente)} icon={<Layers className="h-4 w-4" />} tone="violet" className="h-full" hint="ver por operação" />
         </Link>
       </div>
 

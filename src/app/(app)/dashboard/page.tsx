@@ -130,7 +130,7 @@ export default async function DashboardPage() {
             <p className="text-sm text-slate-400">Recebido dos acordos com operação neste mês</p>
             <p className="font-display tabular mt-1 text-4xl font-bold tracking-tight sm:text-5xl">{formatBRL(fluxoTotal)}</p>
             <SplitBar
-              className="mt-5 h-3"
+              className="mt-5 h-3 bg-white/10"
               partes={[
                 { valor: fluxoJuros.toNumber(), tone: "brand", rotulo: "Juros" },
                 { valor: fluxoReserva.toNumber(), tone: "green", rotulo: "Reserva" },
