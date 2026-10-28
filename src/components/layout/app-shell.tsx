@@ -39,14 +39,16 @@ function Sidebar({ perfil, onNavigate }: { perfil: Perfil; onNavigate?: () => vo
           if (itens.length === 0) return null;
           return (
             <div key={grupo.titulo}>
-              <p className="flex items-center gap-2 px-3 pb-1.5 text-xs font-medium text-slate-400">
-                {grupo.etapa && (
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand-600/15 text-[10px] font-bold text-brand-600 ring-1 ring-brand-600/40">
+              {grupo.etapa ? (
+                <p className="mb-1.5 flex items-center gap-2.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-bold uppercase tracking-wide text-black shadow-[0_0_18px_-8px] shadow-brand-600/70">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black text-xs font-extrabold text-brand-600">
                     {grupo.etapa}
                   </span>
-                )}
-                {grupo.titulo}
-              </p>
+                  {grupo.titulo}
+                </p>
+              ) : (
+                <p className="px-3 pb-1.5 text-xs font-medium text-slate-400">{grupo.titulo}</p>
+              )}
               <ul className="space-y-0.5">
                 {itens.map((item) => {
                   const ativo = pathname === item.href || pathname.startsWith(item.href + "/");
