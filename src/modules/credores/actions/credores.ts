@@ -34,12 +34,17 @@ export async function excluirCredor(id: string): Promise<ActionResult> {
     return erroGenerico(e);
   }
   const supabase = await createClient();
-  const { count } = await supabase
+  const { data: emprestimos } = await supabase
     .from("emprestimos")
-    .select("id", { count: "exact", head: true })
+    .select("codigo")
     .eq("credor_id", id)
-    .is("excluido_em", null);
-  if ((count ?? 0) > 0) return { ok: false, error: "Este credor possui empréstimos e não pode ser excluído." };
+    .is("excluido_em", null)
+    .order("codigo");
+  if (emprestimos && emprestimos.length > 0)
+    return {
+      ok: false,
+      error: `Este credor tem empréstimo cadastrado (${emprestimos.map((e) => e.codigo).join(", ")}). Exclua o empréstimo antes.`,
+    };
 
   const { error } = await supabase.from("credores").update({ excluido_em: new Date().toISOString() }).eq("id", id);
   if (error) return erroBanco(error);

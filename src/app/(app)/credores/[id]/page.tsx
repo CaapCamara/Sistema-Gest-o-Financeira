@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { ExcluirButton } from "@/components/excluir-button";
+import { excluirCredor } from "@/modules/credores/actions/credores";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfil, podeEditar } from "@/lib/auth";
@@ -19,7 +21,19 @@ export default async function CredorPage({ params }: { params: Promise<{ id: str
 
   return (
     <>
-      <PageHeader title={credor.nome} back={{ href: "/credores", label: "Credores" }} />
+      <PageHeader
+        title={credor.nome}
+        back={{ href: "/credores", label: "Credores" }}
+        actions={
+          editavel && (
+            <ExcluirButton
+              nome={`o credor ${credor.nome}`}
+              acao={excluirCredor.bind(null, id)}
+              redirecionarPara="/credores"
+            />
+          )
+        }
+      />
       <Card className="max-w-3xl">
         {editavel ? (
           <CardBody>

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { ExcluirButton } from "@/components/excluir-button";
+import { excluirProtocolo } from "@/modules/protocolos/actions/protocolos";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Pencil } from "lucide-react";
@@ -77,9 +79,17 @@ export default async function ProtocoloPage({
         description={p.assunto ?? undefined}
         actions={
           editavel && (
-            <Link href={`/protocolos/${id}/editar`} className={buttonClasses("secondary", "sm")}>
-              <Pencil className="h-4 w-4" /> Editar
-            </Link>
+            <>
+              <Link href={`/protocolos/${id}/editar`} className={buttonClasses("secondary", "sm")}>
+                <Pencil className="h-4 w-4" /> Editar
+              </Link>
+              <ExcluirButton
+                size="sm"
+                nome="este protocolo"
+                acao={excluirProtocolo.bind(null, id)}
+                redirecionarPara="/protocolos"
+              />
+            </>
           )
         }
       />

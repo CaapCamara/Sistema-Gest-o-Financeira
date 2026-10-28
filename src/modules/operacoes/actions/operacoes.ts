@@ -66,6 +66,23 @@ export async function encerrarOperacao(
   return { ok: true, message: "Operação encerrada." };
 }
 
+export async function excluirOperacao(
+  operacaoId: string,
+  ids: { acordoId: string; emprestimoId: string },
+  motivo: string,
+): Promise<ActionResult> {
+  const negado = await guard();
+  if (negado) return negado;
+  const parsed = motivoSchema.safeParse({ motivo });
+  if (!parsed.success) return erroValidacao(parsed.error);
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("excluir_operacao", { p_operacao_id: operacaoId, p_motivo: parsed.data.motivo });
+  if (error) return erroBanco(error);
+  revalidar(ids);
+  return { ok: true, message: "Operação excluída." };
+}
+
 export async function quitarPrincipalComReserva(emprestimoId: string, data: string): Promise<ActionResult> {
   const negado = await guard();
   if (negado) return negado;

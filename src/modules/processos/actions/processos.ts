@@ -61,13 +61,17 @@ export async function excluirProcesso(id: string): Promise<ActionResult> {
   const negado = await guard();
   if (negado) return negado;
   const supabase = await createClient();
-  const { count } = await supabase
+  const { data: acordos } = await supabase
     .from("acordos")
-    .select("id", { count: "exact", head: true })
+    .select("codigo")
     .eq("processo_id", id)
-    .is("excluido_em", null);
-  if ((count ?? 0) > 0)
-    return { ok: false, error: "Processo com acordos não pode ser excluído. Altere o status para encerrado ou arquivado." };
+    .is("excluido_em", null)
+    .order("codigo");
+  if (acordos && acordos.length > 0)
+    return {
+      ok: false,
+      error: `Este processo tem acordo cadastrado (${acordos.map((a) => a.codigo).join(", ")}). Exclua o acordo antes ou mude o status do processo para encerrado.`,
+    };
 
   const { error } = await supabase.from("processos").update({ excluido_em: new Date().toISOString() }).eq("id", id);
   if (error) return erroBanco(error);

@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { ExcluirButton } from "@/components/excluir-button";
+import { excluirAcordo } from "@/modules/acordos/actions/acordos";
+import { excluirOperacao } from "@/modules/operacoes/actions/operacoes";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Pencil } from "lucide-react";
@@ -142,6 +145,12 @@ export default async function AcordoPage({
               <Link href={`/acordos/${id}/editar`} className={buttonClasses("secondary", "sm")}>
                 <Pencil className="h-4 w-4" /> Editar
               </Link>
+              <ExcluirButton
+                size="sm"
+                nome={`o acordo ${a.codigo}`}
+                acao={excluirAcordo.bind(null, id)}
+                redirecionarPara={`/processos/${a.processo_id}`}
+              />
               {!operacaoAtiva && a.status === "ativo" && (
                 <OperacaoDialog
                   acordoId={id}
@@ -406,8 +415,19 @@ export default async function AcordoPage({
                     </>
                   }
                   actions={
-                    editavel && o.ativa ? (
-                      <EncerrarOperacaoButton operacaoId={o.id} codigo={o.codigo} acordoId={id} emprestimoId={o.emprestimo_id} />
+                    editavel ? (
+                      <div className="flex gap-2">
+                        {o.ativa && (
+                          <EncerrarOperacaoButton operacaoId={o.id} codigo={o.codigo} acordoId={id} emprestimoId={o.emprestimo_id} />
+                        )}
+                        <ExcluirButton
+                          size="sm"
+                          nome={`a operação ${o.codigo}`}
+                          explicacao="O acordo deixa de alimentar o empréstimo e a operação sai das listas. Só é possível se nenhum dinheiro passou por ela (ou se os recebimentos foram estornados). Fica guardada no histórico de auditoria."
+                          pedirMotivo
+                          acao={excluirOperacao.bind(null, o.id, { acordoId: id, emprestimoId: o.emprestimo_id })}
+                        />
+                      </div>
                     ) : undefined
                   }
                 />

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { ExcluirButton } from "@/components/excluir-button";
+import { excluirProcesso } from "@/modules/processos/actions/processos";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileCheck2, Pencil, Plus } from "lucide-react";
@@ -135,6 +137,12 @@ export default async function ProcessoPage({
               <Link href={`/processos/${id}/editar`} className={buttonClasses("secondary", "sm")}>
                 <Pencil className="h-4 w-4" /> Editar
               </Link>
+              <ExcluirButton
+                size="sm"
+                nome={`o processo ${p.codigo}`}
+                acao={excluirProcesso.bind(null, id)}
+                redirecionarPara="/processos"
+              />
               <Link href={`/acordos/novo?processo=${id}`} className={buttonClasses("primary", "sm")}>
                 <Plus className="h-4 w-4" /> Novo acordo
               </Link>

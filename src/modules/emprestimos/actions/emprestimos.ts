@@ -58,13 +58,25 @@ export async function excluirEmprestimo(id: string): Promise<ActionResult> {
   const negado = await guard();
   if (negado) return negado;
   const supabase = await createClient();
-  const { count } = await supabase
-    .from("pagamentos")
-    .select("id", { count: "exact", head: true })
-    .eq("emprestimo_id", id)
-    .is("estornado_em", null);
-  if ((count ?? 0) > 0)
-    return { ok: false, error: "Empréstimo com pagamentos não pode ser excluído. Altere o status para cancelado ou quitado." };
+  const [{ count: pagamentos }, { count: movimentos }] = await Promise.all([
+    supabase
+      .from("pagamentos")
+      .select("id", { count: "exact", head: true })
+      .eq("emprestimo_id", id)
+      .is("estornado_em", null),
+    supabase
+      .from("reserva_movimentos")
+      .select("id", { count: "exact", head: true })
+      .eq("emprestimo_id", id)
+      .is("estornado_em", null),
+  ]);
+  if ((pagamentos ?? 0) + (movimentos ?? 0) > 0)
+    return {
+      ok: false,
+      error:
+        "Este empréstimo já tem dinheiro registrado (pagamentos ou reserva). Estorne esses lançamentos antes. " +
+        "O que veio de um acordo é estornado pelo recebimento, na página do acordo.",
+    };
 
   const { error } = await supabase.from("emprestimos").update({ excluido_em: new Date().toISOString() }).eq("id", id);
   if (error) return erroBanco(error);

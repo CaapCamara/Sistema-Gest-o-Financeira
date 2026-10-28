@@ -76,7 +76,10 @@ export async function excluirAcordo(id: string): Promise<ActionResult> {
     .eq("acordo_id", id)
     .is("estornado_em", null);
   if ((count ?? 0) > 0)
-    return { ok: false, error: "Acordo com recebimentos não pode ser excluído. Altere o status para cancelado." };
+    return {
+      ok: false,
+      error: "Este acordo tem recebimento registrado. Estorne os recebimentos antes (aba Recebimentos) ou mude o status para cancelado.",
+    };
 
   const { error } = await supabase.from("acordos").update({ excluido_em: new Date().toISOString() }).eq("id", id);
   if (error) return erroBanco(error);
