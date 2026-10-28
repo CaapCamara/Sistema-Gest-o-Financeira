@@ -56,6 +56,25 @@ Decisões técnicas que o responsável pode revisar:
 
 Todos os saldos são **calculados** pelas views `vw_emprestimo_posicao` e `vw_competencias`. Nenhum saldo é digitado.
 
+## Exclusão de registros
+
+Credor, empréstimo, processo, acordo, protocolo e operação têm o botão **Excluir** na própria página
+(a operação, na aba Operação do acordo). Nada é apagado fisicamente: o que movimentou dinheiro é
+**estornado** com motivo, o cadastro recebe `excluido_em` e tudo fica na auditoria.
+
+Credor, empréstimo, processo e acordo excluem **em cascata** (`excluir_em_cascata`, uma transação):
+
+- credor → seus empréstimos;
+- empréstimo → pagamentos e reserva estornados, divisões desfeitas, operações excluídas
+  (os recebimentos continuam no acordo, sem a divisão);
+- processo → seus acordos;
+- acordo → recebimentos estornados (com o que geraram) e operações excluídas.
+
+A confirmação mostra o que será desfeito (`previa_exclusao`) e oferece os **caminhos ligados pelo
+dinheiro** para marcar e excluir junto (`opcoes_exclusao`): a partir do credor/empréstimo, os processos
+que o alimentam; a partir do processo/acordo, os empréstimos alimentados. Registro com algo ligado:
+só administrador, com motivo. Operação isolada: só sem destinações ativas.
+
 ## Premissa central: operações (acordo → empréstimo)
 
 O dinheiro dos acordos paga os empréstimos. Uma **operação** (`OPR-2026-0001`) liga um acordo a um empréstimo e define a destinação de cada recebimento:
