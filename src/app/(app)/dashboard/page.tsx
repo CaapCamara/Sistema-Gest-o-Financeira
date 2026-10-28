@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowDownLeft,
   ArrowUpRight,
+  ChevronRight,
   CircleCheck,
   FileCheck2,
   FileWarning,
@@ -62,6 +63,7 @@ export default async function DashboardPage() {
     { count: processosSemNupe },
     { data: coberturas },
     { data: destinacoesMes },
+    { data: remanescentes },
   ] = await Promise.all([
     supabase.from("vw_emprestimo_posicao").select("*").order("codigo"),
     supabase.from("vw_competencias").select("*").gt("juros_em_aberto", 0).lte("data_vencimento", em30).order("data_vencimento").limit(50),
@@ -83,6 +85,7 @@ export default async function DashboardPage() {
       .is("estornado_em", null)
       .gte("data_destinacao", inicioMes)
       .lte("data_destinacao", fimMes),
+    supabase.from("vw_operacoes").select("total_remanescente"),
   ]);
 
   const ativos = ((pos ?? []) as EmprestimoPosicao[]).filter((e) => e.status === "ativo");
@@ -130,6 +133,43 @@ export default async function DashboardPage() {
     },
   ].filter(Boolean) as { href: string; icone: typeof AlertTriangle; tom: "atraso" | "atencao"; texto: string }[];
 
+  // O caminho do dinheiro, na ordem do menu
+  const acordosLista = (acordosData ?? []) as AcordoPosicao[];
+  const caminho = [
+    {
+      etapa: 1,
+      nome: "Empréstimo",
+      href: "/emprestimos",
+      rotulo: "Emprestado",
+      valor: formatBRL(sum(ativos.map((e) => e.valor_principal))),
+      dica: `${ativos.length} empréstimo(s) ativo(s)`,
+    },
+    {
+      etapa: 2,
+      nome: "Processo",
+      href: "/acordos",
+      rotulo: "Em acordos",
+      valor: formatBRL(sum(acordosLista.map((a) => a.valor_total))),
+      dica: `${acordosLista.length} acordo(s) ativo(s)`,
+    },
+    {
+      etapa: 3,
+      nome: "Entradas",
+      href: "/recebimentos",
+      rotulo: "Já entrou",
+      valor: formatBRL(sum(acordosLista.map((a) => a.total_recebido))),
+      dica: `${formatBRL(fluxoTotal)} em ${mesPorExtenso(hoje)}`,
+    },
+    {
+      etapa: 4,
+      nome: "Gestão",
+      href: "/remanescente",
+      rotulo: "Remanescente",
+      valor: formatBRL(sum(((remanescentes ?? []) as { total_remanescente: string | number }[]).map((r) => r.total_remanescente))),
+      dica: "o que sobrou depois de tudo pago",
+    },
+  ];
+
   // Próximos 30 dias
   const aReceber = (parcelasProximas ?? []) as ParcelaPosicao[];
   const aPagar = ((proximos ?? []) as Competencia[]).filter((c) => idsAtivos.has(c.emprestimo_id));
@@ -137,6 +177,36 @@ export default async function DashboardPage() {
   return (
     <>
       <PageHeader title="Painel" description={`Hoje, ${formatDateBR(hoje)}`} />
+
+      {/* O caminho do dinheiro: as 4 etapas do menu, da esquerda para a direita */}
+      <ol className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {caminho.map((c, i) => (
+          <li key={c.etapa} className="surgir relative" style={{ animationDelay: `${i * 90}ms` }}>
+            <Link
+              href={c.href}
+              className="group flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+            >
+              <span className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-600/15 text-[11px] font-bold text-brand-600 ring-1 ring-brand-600/40">
+                  {c.etapa}
+                </span>
+                {c.nome}
+              </span>
+              <span className="mt-3 text-xs text-slate-500">{c.rotulo}</span>
+              <span className="font-display tabular text-2xl font-bold tracking-tight text-slate-950 group-hover:text-brand-700">{c.valor}</span>
+              <span className="mt-1 text-xs text-slate-500">{c.dica}</span>
+            </Link>
+            {i < caminho.length - 1 && (
+              <span
+                aria-hidden
+                className="absolute -right-[13px] top-1/2 z-10 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-papel text-brand-600 ring-1 ring-brand-600/40 lg:flex"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
 
       {/* Quanto entrou este mês e para onde foi */}
       <section className="rounded-2xl border border-slate-200 bg-white p-6 lg:p-8">
