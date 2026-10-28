@@ -27,27 +27,3 @@ export async function salvarCredor(id: string | null, input: CredorInput): Promi
   return { ok: true, data: { id: data.id }, message: "Credor salvo." };
 }
 
-export async function excluirCredor(id: string): Promise<ActionResult> {
-  try {
-    await assertPodeEditar();
-  } catch (e) {
-    return erroGenerico(e);
-  }
-  const supabase = await createClient();
-  const { data: emprestimos } = await supabase
-    .from("emprestimos")
-    .select("codigo")
-    .eq("credor_id", id)
-    .is("excluido_em", null)
-    .order("codigo");
-  if (emprestimos && emprestimos.length > 0)
-    return {
-      ok: false,
-      error: `Este credor tem empréstimo cadastrado (${emprestimos.map((e) => e.codigo).join(", ")}). Exclua o empréstimo antes.`,
-    };
-
-  const { error } = await supabase.from("credores").update({ excluido_em: new Date().toISOString() }).eq("id", id);
-  if (error) return erroBanco(error);
-  revalidatePath("/credores");
-  return { ok: true, message: "Credor excluído." };
-}

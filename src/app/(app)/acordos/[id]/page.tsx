@@ -1,6 +1,7 @@
+import { ExcluirComSelecao } from "@/modules/exclusao/components/excluir-com-selecao";
+import { carregarPreviaExclusao } from "@/modules/exclusao/previa";
 import type { Metadata } from "next";
 import { ExcluirButton } from "@/components/excluir-button";
-import { excluirAcordo } from "@/modules/acordos/actions/acordos";
 import { excluirOperacao } from "@/modules/operacoes/actions/operacoes";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -62,6 +63,7 @@ export default async function AcordoPage({
   const supabase = await createClient();
   const perfil = await getPerfil();
   const editavel = podeEditar(perfil);
+  const exclusao = editavel ? await carregarPreviaExclusao("acordo", id) : null;
 
   const [{ data: pos }, { data: parcs }, { data: recs }, { data: ops }, { data: dest }] = await Promise.all([
     supabase.from("vw_acordo_posicao").select("*").eq("id", id).maybeSingle(),
@@ -145,12 +147,16 @@ export default async function AcordoPage({
               <Link href={`/acordos/${id}/editar`} className={buttonClasses("secondary", "sm")}>
                 <Pencil className="h-4 w-4" /> Editar
               </Link>
-              <ExcluirButton
-                size="sm"
-                nome={`o acordo ${a.codigo}`}
-                acao={excluirAcordo.bind(null, id)}
-                redirecionarPara={`/processos/${a.processo_id}`}
-              />
+              {exclusao && (
+                <ExcluirComSelecao
+                  tipo="acordo"
+                  id={id}
+                  nome={`o acordo ${a.codigo}`}
+                  previa={exclusao.previa}
+                  opcoes={exclusao.opcoes}
+                  redirecionarPara={`/processos/${a.processo_id}`}
+                />
+              )}
               {!operacaoAtiva && a.status === "ativo" && (
                 <OperacaoDialog
                   acordoId={id}

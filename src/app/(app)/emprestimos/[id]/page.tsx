@@ -1,6 +1,6 @@
+import { ExcluirComSelecao } from "@/modules/exclusao/components/excluir-com-selecao";
+import { carregarPreviaExclusao } from "@/modules/exclusao/previa";
 import type { Metadata } from "next";
-import { ExcluirButton } from "@/components/excluir-button";
-import { excluirEmprestimo } from "@/modules/emprestimos/actions/emprestimos";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Pencil } from "lucide-react";
@@ -60,6 +60,7 @@ export default async function EmprestimoPage({
   await garantirCompetencias(supabase, id);
   const perfil = await getPerfil();
   const editavel = podeEditar(perfil);
+  const exclusao = editavel ? await carregarPreviaExclusao("emprestimo", id) : null;
 
   const [{ data: pos }, { data: comps }, { data: pags }, { data: movs }, { data: cob }, { data: ops }, { data: quit }, { data: dest }] = await Promise.all([
     supabase.from("vw_emprestimo_posicao").select("*").eq("id", id).maybeSingle(),
@@ -120,12 +121,16 @@ export default async function EmprestimoPage({
               <Link href={`/emprestimos/${id}/editar`} className={buttonClasses("secondary", "sm")}>
                 <Pencil className="h-4 w-4" /> Editar
               </Link>
-              <ExcluirButton
-                size="sm"
-                nome={`o empréstimo ${e.codigo}`}
-                acao={excluirEmprestimo.bind(null, id)}
-                redirecionarPara="/emprestimos"
-              />
+              {exclusao && (
+                <ExcluirComSelecao
+                  tipo="emprestimo"
+                  id={id}
+                  nome={`o empréstimo ${e.codigo}`}
+                  previa={exclusao.previa}
+                  opcoes={exclusao.opcoes}
+                  redirecionarPara="/emprestimos"
+                />
+              )}
               <ReservaDialog emprestimoId={id} saldoReserva={e.reserva_saldo} />
               <PagamentoDialog
                 emprestimoId={id}

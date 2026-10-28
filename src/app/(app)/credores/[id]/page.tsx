@@ -1,6 +1,6 @@
+import { ExcluirComSelecao } from "@/modules/exclusao/components/excluir-com-selecao";
+import { carregarPreviaExclusao } from "@/modules/exclusao/previa";
 import type { Metadata } from "next";
-import { ExcluirButton } from "@/components/excluir-button";
-import { excluirCredor } from "@/modules/credores/actions/credores";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPerfil, podeEditar } from "@/lib/auth";
@@ -18,6 +18,7 @@ export default async function CredorPage({ params }: { params: Promise<{ id: str
   if (!data) notFound();
   const credor = data as Credor;
   const editavel = podeEditar(await getPerfil());
+  const exclusao = editavel ? await carregarPreviaExclusao("credor", id) : null;
 
   return (
     <>
@@ -25,13 +26,16 @@ export default async function CredorPage({ params }: { params: Promise<{ id: str
         title={credor.nome}
         back={{ href: "/credores", label: "Credores" }}
         actions={
-          editavel && (
-            <ExcluirButton
-              nome={`o credor ${credor.nome}`}
-              acao={excluirCredor.bind(null, id)}
-              redirecionarPara="/credores"
-            />
-          )
+          exclusao && (
+                <ExcluirComSelecao
+                  tipo="credor"
+                  id={id}
+                  nome={`o credor ${credor.nome}`}
+                  previa={exclusao.previa}
+                  opcoes={exclusao.opcoes}
+                  redirecionarPara="/credores"
+                />
+              )
         }
       />
       <Card className="max-w-3xl">

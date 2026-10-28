@@ -66,27 +66,6 @@ export async function salvarAcordo(
   return { ok: true, data: { id: acordoId }, message: "Acordo salvo." };
 }
 
-export async function excluirAcordo(id: string): Promise<ActionResult> {
-  const negado = await guard();
-  if (negado) return negado;
-  const supabase = await createClient();
-  const { count } = await supabase
-    .from("acordo_recebimentos")
-    .select("id", { count: "exact", head: true })
-    .eq("acordo_id", id)
-    .is("estornado_em", null);
-  if ((count ?? 0) > 0)
-    return {
-      ok: false,
-      error: "Este acordo tem recebimento registrado. Estorne os recebimentos antes (aba Recebimentos) ou mude o status para cancelado.",
-    };
-
-  const { error } = await supabase.from("acordos").update({ excluido_em: new Date().toISOString() }).eq("id", id);
-  if (error) return erroBanco(error);
-  revalidar();
-  return { ok: true, message: "Acordo excluído." };
-}
-
 export async function registrarRecebimento(acordoId: string, input: RecebimentoInput): Promise<ActionResult> {
   const negado = await guard();
   if (negado) return negado;

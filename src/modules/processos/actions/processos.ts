@@ -57,28 +57,6 @@ export async function salvarProcesso(id: string | null, input: ProcessoInput): P
   return { ok: true, data: { id: processoId }, message: "Processo salvo." };
 }
 
-export async function excluirProcesso(id: string): Promise<ActionResult> {
-  const negado = await guard();
-  if (negado) return negado;
-  const supabase = await createClient();
-  const { data: acordos } = await supabase
-    .from("acordos")
-    .select("codigo")
-    .eq("processo_id", id)
-    .is("excluido_em", null)
-    .order("codigo");
-  if (acordos && acordos.length > 0)
-    return {
-      ok: false,
-      error: `Este processo tem acordo cadastrado (${acordos.map((a) => a.codigo).join(", ")}). Exclua o acordo antes ou mude o status do processo para encerrado.`,
-    };
-
-  const { error } = await supabase.from("processos").update({ excluido_em: new Date().toISOString() }).eq("id", id);
-  if (error) return erroBanco(error);
-  revalidar();
-  return { ok: true, message: "Processo excluído." };
-}
-
 const anotacaoSchema = z.object({
   data_movimentacao: zDate(),
   descricao: z.string().trim().min(3, "Descreva a movimentação.").max(2000),
