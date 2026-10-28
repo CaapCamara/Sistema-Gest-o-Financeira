@@ -40,8 +40,8 @@ function Sidebar({ perfil, onNavigate }: { perfil: Perfil; onNavigate?: () => vo
           return (
             <div key={grupo.titulo}>
               {grupo.etapa ? (
-                <p className="mb-1.5 flex items-center gap-2.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-bold uppercase tracking-wide text-black shadow-[0_0_18px_-8px] shadow-brand-600/70">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black text-xs font-extrabold text-brand-600">
+                <p className="mb-1.5 flex items-center gap-2.5 border-t border-slate-200 px-3 pb-1 pt-3 text-[13px] font-semibold text-slate-800">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-600/15 text-[11px] font-bold text-brand-600 ring-1 ring-brand-600/40">
                     {grupo.etapa}
                   </span>
                   {grupo.titulo}
