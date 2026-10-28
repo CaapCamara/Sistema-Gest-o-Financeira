@@ -20,8 +20,9 @@ export default async function CredoresPage() {
   return (
     <>
       <PageHeader
+        etapa={{ numero: 1, nome: "Empréstimo" }}
         title="Credores"
-        description="Pessoas e empresas das quais foram recebidos empréstimos."
+        description="Quem emprestou o dinheiro. É o primeiro cadastro: todo empréstimo começa por um credor."
         actions={
           podeEditar(perfil) && (
             <Link href="/credores/novo" className={buttonClasses()}>

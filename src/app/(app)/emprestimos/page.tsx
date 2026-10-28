@@ -38,8 +38,9 @@ export default async function EmprestimosPage({ searchParams }: { searchParams: 
   return (
     <>
       <PageHeader
+        etapa={{ numero: 1, nome: "Empréstimo" }}
         title="Empréstimos"
-        description="Operações financeiras recebidas e o compromisso de pagamento com cada credor."
+        description="O dinheiro recebido de cada credor: valor, juros por mês e prazo para devolver."
         actions={
           podeEditar(perfil) && (
             <Link href="/emprestimos/novo" className={buttonClasses()}>

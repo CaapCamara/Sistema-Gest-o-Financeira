@@ -56,8 +56,9 @@ export default async function ProcessosPage({ searchParams }: { searchParams: Pr
   return (
     <>
       <PageHeader
+        etapa={{ numero: 2, nome: "Processo" }}
         title="Processos"
-        description="Processos e acordos entre partes acompanhados pelo sistema."
+        description="As ações acompanhadas e suas partes. Cada processo pode ter um acordo que gera pagamentos."
         actions={
           podeEditar(perfil) && (
             <Link href="/processos/novo" className={buttonClasses()}>

@@ -33,13 +33,20 @@ function Sidebar({ perfil, onNavigate }: { perfil: Perfil; onNavigate?: () => vo
           <p className="text-[11px] text-slate-500">Acordos, empréstimos e reservas</p>
         </div>
       </div>
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3 pb-4 pt-2">
+      <nav className="flex-1 space-y-4 overflow-y-auto px-3 pb-4 pt-2">
         {NAVEGACAO.map((grupo) => {
           const itens = grupo.itens.filter((i) => !i.somenteAdmin || perfil.papel === "admin");
           if (itens.length === 0) return null;
           return (
             <div key={grupo.titulo}>
-              <p className="px-3 pb-1.5 text-xs font-medium text-slate-400">{grupo.titulo}</p>
+              <p className="flex items-center gap-2 px-3 pb-1.5 text-xs font-medium text-slate-400">
+                {grupo.etapa && (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand-600/15 text-[10px] font-bold text-brand-600 ring-1 ring-brand-600/40">
+                    {grupo.etapa}
+                  </span>
+                )}
+                {grupo.titulo}
+              </p>
               <ul className="space-y-0.5">
                 {itens.map((item) => {
                   const ativo = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -51,15 +58,20 @@ function Sidebar({ perfil, onNavigate }: { perfil: Perfil; onNavigate?: () => vo
                         onClick={onNavigate}
                         aria-current={ativo ? "page" : undefined}
                         className={cn(
-                          "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                          "relative flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors",
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600",
                           ativo
                             ? "bg-slate-100 font-semibold text-slate-950 before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-brand-600"
                             : "text-slate-600 hover:bg-slate-50 hover:text-slate-950",
                         )}
                       >
-                        <Icon className={cn("h-4 w-4", ativo ? "text-brand-600" : "text-slate-500")} />
-                        {item.label}
+                        <Icon className={cn("h-4 w-4 shrink-0", ativo ? "text-brand-600" : "text-slate-500")} />
+                        <span className="min-w-0 leading-tight">
+                          <span className="block">{item.label}</span>
+                          <span className={cn("block truncate text-[11px] font-normal", ativo ? "text-slate-500" : "text-slate-400")}>
+                            {item.dica}
+                          </span>
+                        </span>
                       </Link>
                     </li>
                   );

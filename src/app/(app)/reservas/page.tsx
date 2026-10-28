@@ -28,8 +28,9 @@ export default async function ReservasPage() {
   return (
     <>
       <PageHeader
+        etapa={{ numero: 3, nome: "Entradas" }}
         title="Reservas"
-        description="Valores separados para honrar os compromissos. Reserva não é pagamento: a dívida só diminui quando há pagamento ao credor."
+        description="Dinheiro guardado de cada empréstimo para devolver o valor emprestado. Guardar não é pagar: a dívida só diminui quando o credor recebe."
       />
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Saldo consolidado" value={formatBRL(totalSaldo)} tone="info" />

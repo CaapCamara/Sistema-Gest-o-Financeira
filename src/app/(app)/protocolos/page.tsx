@@ -36,8 +36,9 @@ export default async function ProtocolosPage({ searchParams }: { searchParams: P
   return (
     <>
       <PageHeader
+        etapa={{ numero: 2, nome: "Processo" }}
         title="Protocolos GOV"
-        description="Controle manual dos protocolos no GOV. Um protocolo pode abranger vários processos."
+        description="O documento do acordo protocolado no GOV e o andamento dele. Um protocolo pode abranger vários processos."
         actions={
           podeEditar(perfil) && (
             <Link href="/protocolos/novo" className={buttonClasses()}>

@@ -32,8 +32,9 @@ export default async function OperacoesPage() {
   return (
     <>
       <PageHeader
+        etapa={{ numero: 3, nome: "Entradas" }}
         title="Operações"
-        description="Cada operação liga um acordo a um empréstimo: os recebimentos do acordo pagam os juros, formam a reserva e o excedente vira montante remanescente."
+        description="A operação liga um acordo a um empréstimo e divide cada valor que entra: uma parte paga os juros, outra vai para a reserva. O que sobrar vira montante remanescente."
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">

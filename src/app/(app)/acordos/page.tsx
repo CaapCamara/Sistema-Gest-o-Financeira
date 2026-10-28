@@ -38,8 +38,9 @@ export default async function AcordosPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeader
+        etapa={{ numero: 2, nome: "Processo" }}
         title="Acordos"
-        description="Parcelas pagas entre as partes dos processos, acompanhadas pelo sistema."
+        description="As parcelas combinadas em cada processo. É daqui que vem o dinheiro para pagar os empréstimos."
         actions={
           podeEditar(perfil) && (
             <Link href="/acordos/novo" className={buttonClasses()}>

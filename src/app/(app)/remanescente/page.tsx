@@ -43,8 +43,9 @@ export default async function RemanescentePage() {
   return (
     <>
       <PageHeader
+        etapa={{ numero: 4, nome: "Gestão" }}
         title="Montante remanescente"
-        description="O que sobra dos recebimentos depois de pagar os juros e formar a reserva: a cota de juros quando o empréstimo não tem mais juros a pagar e o percentual livre de cada operação."
+        description="O que sobra depois de pagar os juros e formar a reserva, inclusive tudo o que continua entrando depois que o empréstimo termina."
       />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-3">

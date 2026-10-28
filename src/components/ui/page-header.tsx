@@ -7,11 +7,14 @@ export function PageHeader({
   description,
   actions,
   back,
+  etapa,
 }: {
   title: React.ReactNode;
   description?: React.ReactNode;
   actions?: React.ReactNode;
   back?: { href: string; label: string };
+  /** Etapa do caminho do dinheiro, mostrada discretamente acima do título. */
+  etapa?: { numero: number; nome: string };
 }) {
   return (
     <div className="mb-6">
@@ -26,6 +29,14 @@ export function PageHeader({
       )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
+          {etapa && (
+            <p className="mb-1.5 flex items-center gap-2 text-xs font-medium text-slate-500">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand-600/15 text-[10px] font-bold text-brand-600 ring-1 ring-brand-600/40">
+                {etapa.numero}
+              </span>
+              Etapa {etapa.numero} de 4 · {etapa.nome}
+            </p>
+          )}
           <h1 className="font-display text-[28px] font-bold leading-tight tracking-tight text-slate-950 sm:text-[32px]">{title}</h1>
           {description && <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-slate-500">{description}</p>}
         </div>
